@@ -17,9 +17,9 @@ import { Alert } from '@/components/ui/Alert'
  * the calculated targets, then writes them to nutrition_profiles with
  * onboarded=true — which is what releases the OnboardedGate.
  *
- * Doubles as the re-run flow: arriving with `?redo=1` (from the profile page)
- * seeds every field from the saved profile and returns there when done, so
- * changing one number doesn't mean retyping the other five.
+ * Doubles as the re-run flow: arriving with `?redo=1` (from Settings) seeds
+ * every field from the saved profile and returns there when done, so changing
+ * one number doesn't mean retyping the other five.
  */
 
 const STEPS = ['About you', 'Measurements', 'Activity', 'Goal', 'Your targets'] as const
@@ -112,7 +112,7 @@ export function Onboarding() {
     )
 
     await refreshProfile()
-    navigate(redoing && user ? `/u/${user.id}` : '/', { replace: true })
+    navigate(redoing ? '/settings' : '/', { replace: true })
   }
 
   return (
@@ -313,9 +313,9 @@ export function Onboarding() {
           </div>
 
           {/* A redo is optional, so it needs a way out that doesn't save. */}
-          {redoing && user ? (
+          {redoing ? (
             <Link
-              to={`/u/${user.id}`}
+              to="/settings"
               className="mt-3 block text-center text-sm font-medium text-slate-500 hover:text-slate-900"
             >
               Cancel and keep my current targets

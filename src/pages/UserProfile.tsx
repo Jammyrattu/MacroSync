@@ -170,14 +170,9 @@ export function UserProfile() {
 
         <div className="mt-4">
           {isSelf ? (
-            <div className="grid gap-2 sm:grid-cols-2">
-              <Link to="/settings" className="btn-secondary w-full">
-                Edit your profile
-              </Link>
-              <Link to="/onboarding?redo=1" className="btn-secondary w-full">
-                Redo calorie setup
-              </Link>
-            </div>
+            <Link to="/settings" className="btn-secondary w-full">
+              Edit your profile
+            </Link>
           ) : (
             <button
               type="button"
