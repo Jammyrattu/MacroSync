@@ -10,8 +10,16 @@ import { Spinner } from '@/components/ui/Spinner'
 import { Alert } from '@/components/ui/Alert'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { ChevronLeftIcon, DumbbellIcon } from '@/components/ui/icons'
+import {
+  FollowListModal,
+  type FollowListMode,
+} from '@/components/community/FollowListModal'
 
-/** Public profile: avatar, bio, follower count, follow button, public routines. */
+/**
+ * Public profile: avatar, bio, follower/following counts, follow button, public
+ * routines. Serves both your own profile and everyone else's — `isSelf` is what
+ * swaps the follow button for the owner-only actions.
+ */
 export function UserProfile() {
   const { userId } = useParams<{ userId: string }>()
   const navigate = useNavigate()
@@ -20,7 +28,9 @@ export function UserProfile() {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [routines, setRoutines] = useState<Workout[]>([])
   const [followerCount, setFollowerCount] = useState(0)
+  const [followingCount, setFollowingCount] = useState(0)
   const [isFollowing, setIsFollowing] = useState(false)
+  const [followList, setFollowList] = useState<FollowListMode | null>(null)
   const [loading, setLoading] = useState(true)
   const [notice, setNotice] = useState('')
   const [error, setError] = useState('')
@@ -30,7 +40,7 @@ export function UserProfile() {
   const load = useCallback(async () => {
     if (!userId || !user) return
 
-    const [profileRes, routinesRes, followersRes, myFollowRes] = await Promise.all([
+    const [profileRes, routinesRes, followersRes, followingRes, myFollowRes] = await Promise.all([
       supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
       supabase
         .from('workouts')
@@ -45,6 +55,10 @@ export function UserProfile() {
         .eq('following_id', userId),
       supabase
         .from('follows')
+        .select('*', { count: 'exact', head: true })
+        .eq('follower_id', userId),
+      supabase
+        .from('follows')
         .select('id')
         .eq('follower_id', user.id)
         .eq('following_id', userId)
@@ -54,6 +68,7 @@ export function UserProfile() {
     setProfile((profileRes.data as Profile) ?? null)
     setRoutines((routinesRes.data ?? []) as Workout[])
     setFollowerCount(followersRes.count ?? 0)
+    setFollowingCount(followingRes.count ?? 0)
     setIsFollowing(Boolean(myFollowRes.data))
     setLoading(false)
   }, [userId, user])
@@ -130,9 +145,23 @@ export function UserProfile() {
             <h1 className="truncate text-lg font-bold text-slate-900">
               {profile.display_name ?? 'Anonymous'}
             </h1>
-            <p className="text-sm text-slate-500">
-              {followerCount} {followerCount === 1 ? 'follower' : 'followers'}
-            </p>
+            <div className="flex gap-4 text-sm text-slate-500">
+              <button
+                type="button"
+                onClick={() => setFollowList('followers')}
+                className="hover:text-slate-900 hover:underline"
+              >
+                <span className="font-semibold text-slate-900">{followerCount}</span>{' '}
+                {followerCount === 1 ? 'follower' : 'followers'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setFollowList('following')}
+                className="hover:text-slate-900 hover:underline"
+              >
+                <span className="font-semibold text-slate-900">{followingCount}</span> following
+              </button>
+            </div>
             {profile.bio ? (
               <p className="mt-2 text-sm whitespace-pre-wrap text-slate-700">{profile.bio}</p>
             ) : null}
@@ -141,9 +170,14 @@ export function UserProfile() {
 
         <div className="mt-4">
           {isSelf ? (
-            <Link to="/settings" className="btn-secondary w-full">
-              Edit your profile
-            </Link>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <Link to="/settings" className="btn-secondary w-full">
+                Edit your profile
+              </Link>
+              <Link to="/onboarding?redo=1" className="btn-secondary w-full">
+                Redo calorie setup
+              </Link>
+            </div>
           ) : (
             <button
               type="button"
@@ -155,6 +189,16 @@ export function UserProfile() {
           )}
         </div>
       </section>
+
+      {userId ? (
+        <FollowListModal
+          open={followList !== null}
+          onClose={() => setFollowList(null)}
+          userId={userId}
+          mode={followList ?? 'followers'}
+          isSelf={isSelf}
+        />
+      ) : null}
 
       {notice ? <Alert tone="success">{notice}</Alert> : null}
       <Alert tone="error">{error}</Alert>

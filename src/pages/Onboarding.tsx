@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router'
+import { Link, useNavigate, useSearchParams } from 'react-router'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import {
@@ -13,24 +13,38 @@ import { Logo } from '@/components/ui/Logo'
 import { Alert } from '@/components/ui/Alert'
 
 /**
- * First-run wizard. Collects the six inputs Mifflin-St Jeor needs, previews the
- * calculated targets, then writes them to nutrition_profiles with onboarded=true
- * — which is what releases the OnboardedGate.
+ * Calorie-target wizard. Collects the six inputs the calculation needs, previews
+ * the calculated targets, then writes them to nutrition_profiles with
+ * onboarded=true — which is what releases the OnboardedGate.
+ *
+ * Doubles as the re-run flow: arriving with `?redo=1` (from the profile page)
+ * seeds every field from the saved profile and returns there when done, so
+ * changing one number doesn't mean retyping the other five.
  */
 
 const STEPS = ['About you', 'Measurements', 'Activity', 'Goal', 'Your targets'] as const
 
+/** Empty string rather than "null" so the value can seed a text input. */
+const asInput = (value: number | null | undefined) => (value == null ? '' : String(value))
+
 export function Onboarding() {
   const navigate = useNavigate()
-  const { user, refreshProfile } = useAuth()
+  const [searchParams] = useSearchParams()
+  const { user, nutritionProfile, refreshProfile } = useAuth()
 
+  const redoing = searchParams.get('redo') === '1'
+
+  // RequireNotOnboarded holds this route until auth has settled, so the saved
+  // profile is already available for these one-shot initialisers.
   const [step, setStep] = useState(0)
-  const [age, setAge] = useState('')
-  const [sex, setSex] = useState<Sex | ''>('')
-  const [heightCm, setHeightCm] = useState('')
-  const [weightKg, setWeightKg] = useState('')
-  const [activity, setActivity] = useState<ActivityLevel | ''>('')
-  const [goal, setGoal] = useState<Goal | ''>('')
+  const [age, setAge] = useState(() => asInput(nutritionProfile?.age))
+  const [sex, setSex] = useState<Sex | ''>(() => nutritionProfile?.sex ?? '')
+  const [heightCm, setHeightCm] = useState(() => asInput(nutritionProfile?.height_cm))
+  const [weightKg, setWeightKg] = useState(() => asInput(nutritionProfile?.weight_kg))
+  const [activity, setActivity] = useState<ActivityLevel | ''>(
+    () => nutritionProfile?.activity_level ?? '',
+  )
+  const [goal, setGoal] = useState<Goal | ''>(() => nutritionProfile?.goal ?? '')
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
 
@@ -98,7 +112,7 @@ export function Onboarding() {
     )
 
     await refreshProfile()
-    navigate('/', { replace: true })
+    navigate(redoing && user ? `/u/${user.id}` : '/', { replace: true })
   }
 
   return (
@@ -293,10 +307,20 @@ export function Onboarding() {
                 onClick={handleFinish}
                 className="btn-primary flex-1"
               >
-                {saving ? 'Saving…' : "Let's go"}
+                {saving ? 'Saving…' : redoing ? 'Save new targets' : "Let's go"}
               </button>
             )}
           </div>
+
+          {/* A redo is optional, so it needs a way out that doesn't save. */}
+          {redoing && user ? (
+            <Link
+              to={`/u/${user.id}`}
+              className="mt-3 block text-center text-sm font-medium text-slate-500 hover:text-slate-900"
+            >
+              Cancel and keep my current targets
+            </Link>
+          ) : null}
         </div>
       </div>
     </div>

@@ -35,7 +35,13 @@ export function TopNav() {
           ))}
         </nav>
 
-        <Link to="/settings" className="shrink-0" aria-label="Your profile">
+        {/* Settings already has its own nav item, so the avatar goes where the
+            label says it does: the public profile. */}
+        <Link
+          to={user ? `/u/${user.id}` : '/settings'}
+          className="shrink-0"
+          aria-label="Your profile"
+        >
           <Avatar url={profile?.avatar_url} name={profile?.display_name ?? user?.email} size={36} />
         </Link>
       </div>

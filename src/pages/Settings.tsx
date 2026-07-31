@@ -1,4 +1,5 @@
 import { useEffect, useState, type ChangeEvent } from 'react'
+import { Link } from 'react-router'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { uploadImage } from '@/lib/storage'
@@ -206,6 +207,12 @@ export function Settings() {
           </div>
 
           <p className="text-xs text-slate-500">Signed in as {user?.email}</p>
+
+          {user ? (
+            <Link to={`/u/${user.id}`} className="btn-secondary w-full">
+              View your public profile
+            </Link>
+          ) : null}
         </div>
       </section>
 
