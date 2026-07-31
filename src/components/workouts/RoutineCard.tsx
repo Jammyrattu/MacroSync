@@ -65,7 +65,9 @@ export function RoutineCard({
       ) : null}
 
       <div className="mt-4 flex flex-wrap gap-2">
-        {onEdit || onDelete ? (
+        {/* Startable whenever it's the viewer's own routine — including on
+            their own profile page, where no edit/delete handlers are passed. */}
+        {isOwn || onEdit || onDelete ? (
           <Link to={`/workouts/session/${workout.id}`} className="btn-primary flex-1 !py-2">
             <PlayIcon className="size-4" />
             Start
