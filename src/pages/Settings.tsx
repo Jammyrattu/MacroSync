@@ -380,13 +380,6 @@ export function Settings() {
             />
           </div>
         </div>
-
-        {/* The button above recalculates in place from the fields on this page;
-            this one re-runs the guided wizard for anyone who'd rather be walked
-            through the questions again. */}
-        <Link to="/onboarding?redo=1" className="btn-secondary mt-4 w-full">
-          Recalculate Calories
-        </Link>
       </section>
 
       <button type="button" onClick={handleSave} disabled={saving} className="btn-primary w-full">
