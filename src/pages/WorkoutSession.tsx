@@ -3,12 +3,14 @@ import { useNavigate, useParams } from 'react-router'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { formatDuration } from '@/lib/dates'
-import type { CompletedSet, Workout } from '@/types/db'
+import type { CompletedSet, RoutineExercise, Workout } from '@/types/db'
+import type { MuscleGroup } from '@/data/exercises'
 import { Spinner } from '@/components/ui/Spinner'
 import { Alert } from '@/components/ui/Alert'
 import { Modal } from '@/components/ui/Modal'
 import { CheckIcon, ClockIcon, XIcon } from '@/components/ui/icons'
 import { ShareWorkoutPrompt } from '@/components/workouts/ShareWorkoutPrompt'
+import { ExerciseDetailModal } from '@/components/workouts/ExerciseDetailModal'
 
 /** Per-set editable state, keyed `${exerciseIndex}-${setIndex}`. */
 interface SetState {
@@ -39,6 +41,7 @@ export function WorkoutSession() {
   const [finishing, setFinishing] = useState(false)
   const [savedLogId, setSavedLogId] = useState<string | null>(null)
   const [confirmQuit, setConfirmQuit] = useState(false)
+  const [detail, setDetail] = useState<RoutineExercise | null>(null)
 
   const startedAt = useRef<number>(Date.now())
 
@@ -220,10 +223,16 @@ export function WorkoutSession() {
         {workout.exercises.map((exercise, exerciseIndex) => (
           <section key={`${exercise.exercise_id}-${exerciseIndex}`} className="card overflow-hidden">
             <header className="border-b border-slate-100 px-4 py-3">
-              <h2 className="font-semibold text-slate-900">{exercise.name}</h2>
-              <p className="text-xs text-slate-500">
-                {exercise.sets} × {exercise.reps} · {exercise.rest_seconds}s rest
-              </p>
+              <button
+                type="button"
+                onClick={() => setDetail(exercise)}
+                className="w-full text-left"
+              >
+                <h2 className="font-semibold text-slate-900">{exercise.name}</h2>
+                <p className="text-xs text-slate-500">
+                  {exercise.sets} × {exercise.reps} · {exercise.rest_seconds}s rest · How to
+                </p>
+              </button>
             </header>
 
             <ul className="divide-y divide-slate-100">
@@ -308,6 +317,14 @@ export function WorkoutSession() {
           </button>
         </div>
       </div>
+
+      <ExerciseDetailModal
+        exerciseId={detail?.exercise_id ?? null}
+        name={detail?.name ?? ''}
+        muscleGroup={(detail?.muscle_group ?? 'chest') as MuscleGroup}
+        equipment=""
+        onClose={() => setDetail(null)}
+      />
 
       <Modal open={confirmQuit} onClose={() => setConfirmQuit(false)} title="Quit workout?">
         <div className="space-y-4">

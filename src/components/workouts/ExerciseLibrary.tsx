@@ -8,6 +8,7 @@ import {
 } from '@/data/exercises'
 import { SearchIcon } from '@/components/ui/icons'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { ExerciseDetailModal } from '@/components/workouts/ExerciseDetailModal'
 
 /**
  * Browsable exercise list with search + category filter.
@@ -23,6 +24,7 @@ export function ExerciseLibrary({
 }) {
   const [query, setQuery] = useState('')
   const [group, setGroup] = useState<MuscleGroup | 'all'>('all')
+  const [detail, setDetail] = useState<Exercise | null>(null)
 
   const results = useMemo(() => filterExercises(query, group), [query, group])
 
@@ -61,12 +63,18 @@ export function ExerciseLibrary({
             const picked = pickedIds?.has(exercise.id)
             return (
               <li key={exercise.id} className="flex items-center gap-3 px-4 py-3">
-                <div className="min-w-0 flex-1">
+                {/* The row itself opens the how-to; Add stays a separate target
+                    so picking an exercise never costs an extra tap. */}
+                <button
+                  type="button"
+                  onClick={() => setDetail(exercise)}
+                  className="min-w-0 flex-1 text-left"
+                >
                   <p className="truncate text-sm font-medium text-slate-900">{exercise.name}</p>
                   <p className="text-xs text-slate-500">
                     {MUSCLE_GROUP_LABELS[exercise.muscle_group]} · {exercise.equipment}
                   </p>
-                </div>
+                </button>
 
                 {onPick ? (
                   <button
@@ -83,6 +91,14 @@ export function ExerciseLibrary({
           })}
         </ul>
       )}
+
+      <ExerciseDetailModal
+        exerciseId={detail?.id ?? null}
+        name={detail?.name ?? ''}
+        muscleGroup={detail?.muscle_group ?? 'chest'}
+        equipment={detail?.equipment ?? ''}
+        onClose={() => setDetail(null)}
+      />
     </div>
   )
 }
