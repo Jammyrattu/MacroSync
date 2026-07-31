@@ -161,8 +161,8 @@ export function Onboarding() {
                   ))}
                 </div>
                 <p className="mt-2 text-xs text-slate-500">
-                  Mifflin-St Jeor is defined with two sex coefficients; pick whichever gives you the
-                  more useful estimate. You can change it any time in Settings.
+                  The calorie calculation only offers two sex coefficients; pick whichever gives you
+                  the more useful estimate. You can change it any time in Settings.
                 </p>
               </div>
             </div>
@@ -243,7 +243,7 @@ export function Onboarding() {
             <div className="space-y-5">
               <Header
                 title="Here are your targets"
-                detail="Calculated with the Mifflin-St Jeor equation. Adjustable later in Settings."
+                detail="Calculated from your measurements and activity level. Adjustable later in Settings."
               />
 
               <div className="rounded-2xl bg-brand-50 p-5 text-center">
