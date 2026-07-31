@@ -17,6 +17,9 @@ dist-ssr
 .env.local
 .env.*.local
 
+# Vercel project link
+.vercel
+
 # Supabase CLI local state
 supabase/.temp
 supabase/.branches
