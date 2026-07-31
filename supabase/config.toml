@@ -1,0 +1,10 @@
+# Supabase CLI project config.
+# `project_id` is a local label; `supabase link --project-ref <ref>` is what
+# binds this directory to the hosted project.
+project_id = "macrosync"
+
+[functions.food-search]
+# Keep JWT verification on: supabase-js attaches the signed-in user's token
+# automatically, so only authenticated users can spend our Open Food Facts
+# rate limit.
+verify_jwt = true

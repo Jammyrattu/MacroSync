@@ -1,0 +1,113 @@
+import { useMemo, useState } from 'react'
+import {
+  MUSCLE_GROUPS,
+  MUSCLE_GROUP_LABELS,
+  filterExercises,
+  type Exercise,
+  type MuscleGroup,
+} from '@/data/exercises'
+import { SearchIcon } from '@/components/ui/icons'
+import { EmptyState } from '@/components/ui/EmptyState'
+
+/**
+ * Browsable exercise list with search + category filter.
+ * Doubles as the picker inside the routine builder — pass `onPick` to get an
+ * "Add" affordance on each row.
+ */
+export function ExerciseLibrary({
+  onPick,
+  pickedIds,
+}: {
+  onPick?: (exercise: Exercise) => void
+  pickedIds?: Set<string>
+}) {
+  const [query, setQuery] = useState('')
+  const [group, setGroup] = useState<MuscleGroup | 'all'>('all')
+
+  const results = useMemo(() => filterExercises(query, group), [query, group])
+
+  return (
+    <div className="space-y-3">
+      <div className="relative">
+        <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" />
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          className="input pl-9"
+          placeholder="Search exercises"
+          aria-label="Search exercises"
+        />
+      </div>
+
+      <div className="scroll-x flex gap-2 pb-1">
+        <FilterChip active={group === 'all'} onClick={() => setGroup('all')}>
+          All
+        </FilterChip>
+        {MUSCLE_GROUPS.map((option) => (
+          <FilterChip key={option} active={group === option} onClick={() => setGroup(option)}>
+            {MUSCLE_GROUP_LABELS[option]}
+          </FilterChip>
+        ))}
+      </div>
+
+      {results.length === 0 ? (
+        <div className="card">
+          <EmptyState title="No exercises match" description="Try a different search or category." />
+        </div>
+      ) : (
+        <ul className="card divide-y divide-slate-100 overflow-hidden">
+          {results.map((exercise) => {
+            const picked = pickedIds?.has(exercise.id)
+            return (
+              <li key={exercise.id} className="flex items-center gap-3 px-4 py-3">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-slate-900">{exercise.name}</p>
+                  <p className="text-xs text-slate-500">
+                    {MUSCLE_GROUP_LABELS[exercise.muscle_group]} · {exercise.equipment}
+                  </p>
+                </div>
+
+                {onPick ? (
+                  <button
+                    type="button"
+                    onClick={() => onPick(exercise)}
+                    disabled={picked}
+                    className={picked ? 'btn-secondary !py-1.5 !px-3' : 'btn-primary !py-1.5 !px-3'}
+                  >
+                    {picked ? 'Added' : 'Add'}
+                  </button>
+                ) : null}
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+function FilterChip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean
+  onClick: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-semibold whitespace-nowrap transition-colors ${
+        active
+          ? 'bg-brand-600 text-white'
+          : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+      }`}
+    >
+      {children}
+    </button>
+  )
+}

@@ -1,0 +1,169 @@
+/**
+ * Hand-written types mirroring supabase/migrations/0001_init.sql.
+ *
+ * These are the single source of truth for the shape of every row in the app.
+ * If you change a column in the migration, change it here too — nothing
+ * regenerates this automatically.
+ */
+
+export type Sex = 'male' | 'female'
+export type ActivityLevel = 'sedentary' | 'light' | 'moderate' | 'very' | 'extra'
+export type Goal = 'lose' | 'maintain' | 'gain'
+export type Meal = 'breakfast' | 'lunch' | 'dinner' | 'snacks'
+export type Visibility = 'private' | 'public'
+export type PostCategory =
+  | 'recipe'
+  | 'food_idea'
+  | 'tip'
+  | 'progress'
+  | 'question'
+  | 'motivation'
+
+export interface Profile {
+  id: string
+  display_name: string | null
+  bio: string | null
+  avatar_url: string | null
+  created_at: string
+}
+
+export interface NutritionProfile {
+  id: string
+  user_id: string
+  age: number | null
+  sex: Sex | null
+  height_cm: number | null
+  weight_kg: number | null
+  activity_level: ActivityLevel | null
+  goal: Goal | null
+  calorie_target: number | null
+  protein_target: number | null
+  carbs_target: number | null
+  fat_target: number | null
+  onboarded: boolean
+  created_at: string
+  updated_at: string
+}
+
+/**
+ * Macros are stored PER 100 GRAMS, exactly as Open Food Facts returns them,
+ * alongside the serving the user picked. Storing the source values rather than
+ * pre-multiplied totals is what lets "edit serving" recompute losslessly.
+ */
+export interface FoodNutrients {
+  calories: number
+  protein: number
+  carbs: number
+  fat: number
+}
+
+export interface FoodSnapshot extends FoodNutrients {
+  food_name: string
+  brand: string | null
+  barcode: string | null
+  image_url: string | null
+  serving_size: string | null
+}
+
+export interface FoodLog extends FoodSnapshot {
+  id: string
+  user_id: string
+  log_date: string
+  meal: Meal
+  serving_grams: number
+  quantity: number
+  created_at: string
+}
+
+export interface FavoriteFood extends FoodSnapshot {
+  id: string
+  user_id: string
+  created_at: string
+}
+
+export interface WeightLog {
+  id: string
+  user_id: string
+  weight_kg: number
+  log_date: string
+  created_at: string
+}
+
+/** One entry in the `workouts.exercises` jsonb array. */
+export interface RoutineExercise {
+  exercise_id: string
+  name: string
+  muscle_group: string
+  sets: number
+  reps: number
+  rest_seconds: number
+}
+
+export interface Workout {
+  id: string
+  user_id: string
+  name: string
+  description: string | null
+  exercises: RoutineExercise[]
+  visibility: Visibility
+  created_at: string
+  updated_at: string
+}
+
+/** One ticked-off set inside `workout_logs.completed_sets`. */
+export interface CompletedSet {
+  exercise_id: string
+  name: string
+  set_number: number
+  reps: number
+  weight_kg: number
+}
+
+export interface WorkoutLog {
+  id: string
+  user_id: string
+  workout_id: string | null
+  workout_name: string
+  duration_seconds: number
+  completed_sets: CompletedSet[]
+  total_volume: number
+  performed_at: string
+}
+
+export interface CommunityPost {
+  id: string
+  user_id: string
+  title: string
+  content: string
+  category: PostCategory
+  image_url: string | null
+  created_at: string
+}
+
+export interface PostReaction {
+  id: string
+  post_id: string
+  user_id: string
+  emoji: string
+  created_at: string
+}
+
+export interface Comment {
+  id: string
+  post_id: string
+  user_id: string
+  content: string
+  created_at: string
+}
+
+export interface Follow {
+  id: string
+  follower_id: string
+  following_id: string
+  created_at: string
+}
+
+/** Author fields embedded via the FK to profiles — see the migration's FK note. */
+export type WithAuthor<T> = T & {
+  profiles: Pick<Profile, 'id' | 'display_name' | 'avatar_url'> | null
+}

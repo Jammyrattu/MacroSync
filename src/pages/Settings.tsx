@@ -1,0 +1,388 @@
+import { useEffect, useState, type ChangeEvent } from 'react'
+import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/hooks/useAuth'
+import { uploadImage } from '@/lib/storage'
+import {
+  ACTIVITY_LABELS,
+  ACTIVITY_MULTIPLIERS,
+  GOAL_LABELS,
+  calculateTargets,
+} from '@/lib/nutrition'
+import type { ActivityLevel, Goal, Sex } from '@/types/db'
+import { Avatar } from '@/components/ui/Avatar'
+import { Alert } from '@/components/ui/Alert'
+import { LogoutIcon } from '@/components/ui/icons'
+
+/**
+ * Profile, body stats and macro targets.
+ *
+ * Targets are editable by hand; "Recalculate from profile" runs the same
+ * calculateTargets() used at onboarding, so the two can never disagree.
+ */
+export function Settings() {
+  const { user, profile, nutritionProfile, refreshProfile, signOut } = useAuth()
+
+  const [displayName, setDisplayName] = useState('')
+  const [bio, setBio] = useState('')
+  const [age, setAge] = useState('')
+  const [sex, setSex] = useState<Sex>('male')
+  const [heightCm, setHeightCm] = useState('')
+  const [weightKg, setWeightKg] = useState('')
+  const [activity, setActivity] = useState<ActivityLevel>('moderate')
+  const [goal, setGoal] = useState<Goal>('maintain')
+  const [calories, setCalories] = useState('')
+  const [protein, setProtein] = useState('')
+  const [carbs, setCarbs] = useState('')
+  const [fat, setFat] = useState('')
+
+  const [saving, setSaving] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
+
+  // Seed the form from context once it's loaded.
+  useEffect(() => {
+    if (profile) {
+      setDisplayName(profile.display_name ?? '')
+      setBio(profile.bio ?? '')
+    }
+    if (nutritionProfile) {
+      setAge(nutritionProfile.age ? String(nutritionProfile.age) : '')
+      setSex(nutritionProfile.sex ?? 'male')
+      setHeightCm(nutritionProfile.height_cm ? String(nutritionProfile.height_cm) : '')
+      setWeightKg(nutritionProfile.weight_kg ? String(nutritionProfile.weight_kg) : '')
+      setActivity(nutritionProfile.activity_level ?? 'moderate')
+      setGoal(nutritionProfile.goal ?? 'maintain')
+      setCalories(nutritionProfile.calorie_target ? String(nutritionProfile.calorie_target) : '')
+      setProtein(nutritionProfile.protein_target ? String(nutritionProfile.protein_target) : '')
+      setCarbs(nutritionProfile.carbs_target ? String(nutritionProfile.carbs_target) : '')
+      setFat(nutritionProfile.fat_target ? String(nutritionProfile.fat_target) : '')
+    }
+  }, [profile, nutritionProfile])
+
+  function flash(message: string) {
+    setNotice(message)
+    window.setTimeout(() => setNotice(''), 4000)
+  }
+
+  function handleRecalculate() {
+    if (!age || !heightCm || !weightKg) {
+      setError('Fill in age, height and weight first.')
+      return
+    }
+
+    const targets = calculateTargets({
+      age: Number(age),
+      sex,
+      height_cm: Number(heightCm),
+      weight_kg: Number(weightKg),
+      activity_level: activity,
+      goal,
+    })
+
+    setCalories(String(targets.calorie_target))
+    setProtein(String(targets.protein_target))
+    setCarbs(String(targets.carbs_target))
+    setFat(String(targets.fat_target))
+    setError('')
+    flash(`Recalculated: ${targets.calorie_target} kcal (maintenance ${targets.tdee}).`)
+  }
+
+  async function handleAvatar(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file || !user) return
+
+    setUploading(true)
+    setError('')
+
+    try {
+      const url = await uploadImage('avatars', user.id, file)
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: url })
+        .eq('id', user.id)
+      if (updateError) throw new Error(updateError.message)
+
+      await refreshProfile()
+      flash('Avatar updated.')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Upload failed.')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  async function handleSave() {
+    if (!user) return
+
+    setSaving(true)
+    setError('')
+
+    const [profileRes, nutritionRes] = await Promise.all([
+      supabase
+        .from('profiles')
+        .update({ display_name: displayName.trim() || null, bio: bio.trim() || null })
+        .eq('id', user.id),
+      supabase
+        .from('nutrition_profiles')
+        .update({
+          age: age ? Number(age) : null,
+          sex,
+          height_cm: heightCm ? Number(heightCm) : null,
+          weight_kg: weightKg ? Number(weightKg) : null,
+          activity_level: activity,
+          goal,
+          calorie_target: calories ? Number(calories) : null,
+          protein_target: protein ? Number(protein) : null,
+          carbs_target: carbs ? Number(carbs) : null,
+          fat_target: fat ? Number(fat) : null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('user_id', user.id),
+    ])
+
+    setSaving(false)
+
+    const failure = profileRes.error ?? nutritionRes.error
+    if (failure) {
+      setError(failure.message)
+      return
+    }
+
+    await refreshProfile()
+    flash('Settings saved.')
+  }
+
+  return (
+    <div className="space-y-4">
+      <h1 className="text-xl font-bold tracking-tight text-slate-900">Settings</h1>
+
+      {notice ? <Alert tone="success">{notice}</Alert> : null}
+      <Alert tone="error">{error}</Alert>
+
+      {/* Profile */}
+      <section className="card p-5">
+        <h2 className="font-semibold text-slate-900">Profile</h2>
+
+        <div className="mt-4 flex items-center gap-4">
+          <Avatar url={profile?.avatar_url} name={displayName || user?.email} size={64} />
+          <label className="btn-secondary cursor-pointer">
+            {uploading ? 'Uploading…' : 'Change avatar'}
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleAvatar}
+              disabled={uploading}
+              className="sr-only"
+            />
+          </label>
+        </div>
+
+        <div className="mt-4 space-y-4">
+          <div>
+            <label className="label" htmlFor="display-name">
+              Display name
+            </label>
+            <input
+              id="display-name"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              className="input"
+            />
+          </div>
+
+          <div>
+            <label className="label" htmlFor="bio">
+              Bio
+            </label>
+            <textarea
+              id="bio"
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
+              rows={3}
+              className="input resize-none"
+              placeholder="A line about you"
+            />
+          </div>
+
+          <p className="text-xs text-slate-500">Signed in as {user?.email}</p>
+        </div>
+      </section>
+
+      {/* Body stats */}
+      <section className="card p-5">
+        <h2 className="font-semibold text-slate-900">Body & goal</h2>
+
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          <div>
+            <label className="label" htmlFor="set-age">
+              Age
+            </label>
+            <input
+              id="set-age"
+              type="number"
+              inputMode="numeric"
+              value={age}
+              onChange={(e) => setAge(e.target.value)}
+              className="input"
+            />
+          </div>
+
+          <div>
+            <label className="label" htmlFor="set-sex">
+              Sex
+            </label>
+            <select
+              id="set-sex"
+              value={sex}
+              onChange={(e) => setSex(e.target.value as Sex)}
+              className="input"
+            >
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="label" htmlFor="set-height">
+              Height (cm)
+            </label>
+            <input
+              id="set-height"
+              type="number"
+              inputMode="decimal"
+              value={heightCm}
+              onChange={(e) => setHeightCm(e.target.value)}
+              className="input"
+            />
+          </div>
+
+          <div>
+            <label className="label" htmlFor="set-weight">
+              Weight (kg)
+            </label>
+            <input
+              id="set-weight"
+              type="number"
+              inputMode="decimal"
+              step="0.1"
+              value={weightKg}
+              onChange={(e) => setWeightKg(e.target.value)}
+              className="input"
+            />
+          </div>
+        </div>
+
+        <div className="mt-3">
+          <label className="label" htmlFor="set-activity">
+            Activity level
+          </label>
+          <select
+            id="set-activity"
+            value={activity}
+            onChange={(e) => setActivity(e.target.value as ActivityLevel)}
+            className="input"
+          >
+            {(Object.keys(ACTIVITY_MULTIPLIERS) as ActivityLevel[]).map((level) => (
+              <option key={level} value={level}>
+                {ACTIVITY_LABELS[level].title} — {ACTIVITY_LABELS[level].detail}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="mt-3">
+          <label className="label" htmlFor="set-goal">
+            Goal
+          </label>
+          <select
+            id="set-goal"
+            value={goal}
+            onChange={(e) => setGoal(e.target.value as Goal)}
+            className="input"
+          >
+            {(['lose', 'maintain', 'gain'] as Goal[]).map((option) => (
+              <option key={option} value={option}>
+                {GOAL_LABELS[option].title} — {GOAL_LABELS[option].detail}
+              </option>
+            ))}
+          </select>
+        </div>
+      </section>
+
+      {/* Targets */}
+      <section className="card p-5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-semibold text-slate-900">Daily targets</h2>
+          <button type="button" onClick={handleRecalculate} className="btn-secondary !py-1.5 !px-3">
+            Recalculate from profile
+          </button>
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          <div>
+            <label className="label" htmlFor="set-calories">
+              Calories
+            </label>
+            <input
+              id="set-calories"
+              type="number"
+              inputMode="numeric"
+              value={calories}
+              onChange={(e) => setCalories(e.target.value)}
+              className="input"
+            />
+          </div>
+          <div>
+            <label className="label" htmlFor="set-protein">
+              Protein (g)
+            </label>
+            <input
+              id="set-protein"
+              type="number"
+              inputMode="numeric"
+              value={protein}
+              onChange={(e) => setProtein(e.target.value)}
+              className="input"
+            />
+          </div>
+          <div>
+            <label className="label" htmlFor="set-carbs">
+              Carbs (g)
+            </label>
+            <input
+              id="set-carbs"
+              type="number"
+              inputMode="numeric"
+              value={carbs}
+              onChange={(e) => setCarbs(e.target.value)}
+              className="input"
+            />
+          </div>
+          <div>
+            <label className="label" htmlFor="set-fat">
+              Fat (g)
+            </label>
+            <input
+              id="set-fat"
+              type="number"
+              inputMode="numeric"
+              value={fat}
+              onChange={(e) => setFat(e.target.value)}
+              className="input"
+            />
+          </div>
+        </div>
+      </section>
+
+      <button type="button" onClick={handleSave} disabled={saving} className="btn-primary w-full">
+        {saving ? 'Saving…' : 'Save changes'}
+      </button>
+
+      <button type="button" onClick={() => void signOut()} className="btn-secondary w-full">
+        <LogoutIcon className="size-4" />
+        Log out
+      </button>
+    </div>
+  )
+}
