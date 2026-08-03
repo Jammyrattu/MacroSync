@@ -1,8 +1,6 @@
 import type { HealthMetric } from '@/types/db'
 import { SLEEP_COLORS, formatMinutes } from '@/lib/progressViz'
 import { DonutChart, type DonutSlice } from './DonutChart'
-import { EmptyState } from '@/components/ui/EmptyState'
-import { ClockIcon } from '@/components/ui/icons'
 
 const STAGES: { key: keyof typeof SLEEP_COLORS; metric: string; label: string }[] = [
   { key: 'deep', metric: 'sleep_deep_minutes', label: 'Deep' },
@@ -51,20 +49,10 @@ export function SleepCard({
   const windowTotal = valueFor(windowMetrics, 'sleep_minutes')
   const average = nights > 0 ? windowTotal / nights : 0
 
-  if (asleep === 0 && !hasBreakdown) {
-    return (
-      <section className="card p-5">
-        <h2 className="font-semibold text-slate-900">Sleep</h2>
-        <div className="mt-3">
-          <EmptyState
-            icon={<ClockIcon className="size-8" />}
-            title="No sleep recorded"
-            description="Nothing synced from Google Health for this night."
-          />
-        </div>
-      </section>
-    )
-  }
+  // Nothing to report is not a card. Progress only mounts this when the window
+  // holds sleep data at all; this covers a single night inside it that has
+  // none, so moving the date doesn't leave an empty shell behind.
+  if (asleep === 0 && !hasBreakdown) return null
 
   const vsAverage = average > 0 ? asleep - average : null
 

@@ -111,36 +111,46 @@ export function HealthStats({
     [date],
   )
 
+  /**
+   * Only metrics Google actually returned something for.
+   *
+   * This pane reports what the sync brought back, so a metric with no data
+   * isn't an empty tile to fill in — it's a row that shouldn't be here. Goals
+   * set in MacroSync never conjure a tile on their own.
+   */
   const tiles = useMemo<StatTileData[]>(
     () =>
-      METRICS.map((metric) => {
-        const history = windowDates.map((day) => sumOn(metrics, metric.key, day))
-        const raw = sumOn(metrics, metric.key, date)
-        const goal = metric.goalField ? (profile?.[metric.goalField] ?? null) : null
+      METRICS.filter((metric) => metrics.some((m) => m.metric === metric.key && Number(m.value) > 0))
+        .map((metric) => {
+          const history = windowDates.map((day) => sumOn(metrics, metric.key, day))
+          const raw = sumOn(metrics, metric.key, date)
+          const goal = metric.goalField ? (profile?.[metric.goalField] ?? null) : null
 
-        return {
-          key: metric.key,
-          label: metric.label,
-          icon: metric.icon,
-          value: raw > 0 ? metric.format(raw) : null,
-          caption:
-            metric.key === 'sleep_minutes'
-              ? `Night of ${date.split('-').reverse().join('/')}`
-              : date.split('-').reverse().join('/'),
-          help: metric.help,
-          // Days with nothing recorded would drag the average to zero and make
-          // every figure look like a personal best.
-          history: history.filter((v) => v > 0),
-          raw,
-          goal,
-          format: metric.format,
-          goalNoun: metric.goalNoun,
-        }
-      }),
+          return {
+            key: metric.key,
+            label: metric.label,
+            icon: metric.icon,
+            value: raw > 0 ? metric.format(raw) : null,
+            caption:
+              metric.key === 'sleep_minutes'
+                ? `Night of ${date.split('-').reverse().join('/')}`
+                : date.split('-').reverse().join('/'),
+            help: metric.help,
+            // Days with nothing recorded would drag the average to zero and
+            // make every figure look like a personal best.
+            history: history.filter((v) => v > 0),
+            raw,
+            goal,
+            format: metric.format,
+          }
+        }),
     [metrics, windowDates, date, profile],
   )
 
-  const active = METRICS.find((m) => m.key === selected) ?? METRICS[0]
+  // Keep the selection on a tile that still exists — a metric can drop out of
+  // the row when the date moves to a day it has no data for.
+  const activeKey = tiles.some((t) => t.key === selected) ? selected : (tiles[0]?.key ?? 'steps')
+  const active = METRICS.find((m) => m.key === activeKey) ?? METRICS[0]
   const trend = useMemo<TrendPoint[]>(
     () =>
       windowDates
@@ -178,8 +188,6 @@ export function HealthStats({
     )
   }
 
-  const anyData = metrics.length > 0
-
   return (
     <section className="card p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -205,42 +213,49 @@ export function HealthStats({
         </p>
       ) : null}
 
-      {!anyData ? (
+      {tiles.length === 0 ? (
         <p className="mt-3 text-sm text-slate-500">
           Nothing synced yet. Press “Sync now” to pull the last 30 days.
         </p>
       ) : (
         <>
-          {/* Negative margin lets the row bleed to the card edge, so a
-              part-visible tile signals there's more to scroll to. */}
-          <div className="scroll-x -mx-5 mt-4 flex snap-x snap-mandatory gap-3 px-5 pb-1">
+          {/* Scrolls within the card's padding. Bleeding it to the card edge
+              made the row wider than the card, which read as broken rather
+              than scrollable. */}
+          <div className="scroll-x mt-4 flex snap-x snap-mandatory gap-3 pb-1">
             {tiles.map((tile) => (
               <StatTile
                 key={tile.key}
                 tile={tile}
-                selected={tile.key === selected}
+                selected={tile.key === activeKey}
                 onSelect={() => setSelected(tile.key)}
               />
             ))}
           </div>
 
-          <div className="mt-5 border-t border-slate-100 pt-4">
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <h3 className="text-sm font-semibold text-slate-900">
-                {active.label} · last {HISTORY_DAYS} days
-              </h3>
-              <p className="text-xs text-slate-400">Tap a tile to change this chart</p>
-            </div>
+          {/* A trend needs at least two days; one synced day is a tile, not a
+              chart. */}
+          {trend.length >= 2 ? (
+            <div className="mt-5 border-t border-slate-100 pt-4">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <h3 className="text-sm font-semibold text-slate-900">
+                  {active.label} · last {HISTORY_DAYS} days
+                </h3>
+                {tiles.length > 1 ? (
+                  <p className="text-xs text-slate-400">Tap a tile to change this chart</p>
+                ) : null}
+              </div>
 
-            <div className="mt-3">
-              <MetricTrendChart
-                data={trend}
-                label={active.label}
-                goal={activeGoal}
-                format={active.format}
-              />
+              <div className="mt-3">
+                <MetricTrendChart
+                  data={trend}
+                  label={active.label}
+                  goal={activeGoal}
+                  format={active.format}
+                />
+              </div>
             </div>
-          </div>
+          ) : null}
         </>
       )}
     </section>

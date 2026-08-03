@@ -1,5 +1,4 @@
 import { useState, type ReactNode } from 'react'
-import { Link } from 'react-router'
 import { Sparkline } from './Sparkline'
 import { InfoIcon } from '@/components/ui/icons'
 
@@ -21,17 +20,18 @@ export interface StatTileData {
   goal: number | null
   /** Renders a raw number the way this metric reads. */
   format: (value: number) => string
-  /** Wording for the "no goal" prompt, e.g. "step". */
-  goalNoun: string
 }
 
 /**
  * One metric in the Progress stat row.
  *
- * Shows progress against a goal when one is set, and the trend against the
- * recent average when one isn't — so a tile is never just a number with a dead
- * line under it. Selecting a tile drives the chart below the row, which is what
- * the selected state means.
+ * Shows progress against a goal when one is set, otherwise the trend against
+ * the recent average. Nothing here advertises MacroSync's own settings — this
+ * pane reports what Google Health returned, so an unset goal is silent rather
+ * than a prompt.
+ *
+ * Selecting a tile drives the chart below the row, which is what the selected
+ * state means.
  */
 export function StatTile({
   tile,
@@ -56,7 +56,9 @@ export function StatTile({
 
   return (
     <div
-      className={`relative w-[13.5rem] shrink-0 snap-start rounded-2xl border p-4 text-left transition-colors ${
+      // grow + basis + shrink-0: a handful of tiles spread to fill the card,
+      // more than fit keep their width and the row scrolls instead of squashing.
+      className={`relative shrink-0 grow basis-52 snap-start rounded-2xl border p-4 text-left transition-colors ${
         selected
           ? 'border-brand-400 bg-brand-50/60 ring-1 ring-brand-400'
           : 'border-slate-200 bg-white hover:border-slate-300'
@@ -143,14 +145,7 @@ export function StatTile({
               {delta >= 0 ? 'above' : 'below'} your recent average
             </p>
           </div>
-        ) : (
-          <Link
-            to="/settings"
-            className="text-xs text-slate-400 underline-offset-2 hover:text-slate-600 hover:underline"
-          >
-            No personal {tile.goalNoun} goal set
-          </Link>
-        )}
+        ) : null}
       </div>
     </div>
   )

@@ -139,7 +139,9 @@ export function Progress() {
         onSync={() => void health.sync()}
       />
 
-      {health.connection ? (
+      {/* Only when Google actually returned sleep for this window — an empty
+          sleep card is scaffolding, not information. */}
+      {windowMetrics.some((m) => m.metric.startsWith('sleep_') && Number(m.value) > 0) ? (
         <SleepCard metrics={dayMetrics} windowMetrics={windowMetrics} />
       ) : null}
 
