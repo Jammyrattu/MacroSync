@@ -153,6 +153,8 @@ export interface Comment {
   post_id: string
   user_id: string
   content: string
+  /** Optional GIF, hot-linked from the provider rather than stored in a bucket. */
+  image_url: string | null
   created_at: string
 }
 

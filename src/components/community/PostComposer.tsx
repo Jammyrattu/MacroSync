@@ -1,4 +1,4 @@
-import { useState, type ChangeEvent } from 'react'
+import { useRef, useState, type ChangeEvent } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { uploadImage } from '@/lib/storage'
@@ -7,6 +7,7 @@ import type { PostCategory } from '@/types/db'
 import { Modal } from '@/components/ui/Modal'
 import { Alert } from '@/components/ui/Alert'
 import { ImageIcon, XIcon } from '@/components/ui/icons'
+import { LazyMediaPicker, type PickedGif } from './LazyMediaPicker'
 
 /** Create a post, with an optional image uploaded to the post-images bucket. */
 export function PostComposer({
@@ -26,11 +27,16 @@ export function PostComposer({
   const [preview, setPreview] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [picker, setPicker] = useState<'emoji' | 'gif' | null>(null)
+  // A chosen GIF is hot-linked from the provider, so there's no file to upload.
+  const [gifUrl, setGifUrl] = useState<string | null>(null)
+  const contentRef = useRef<HTMLTextAreaElement | null>(null)
 
   function handleFile(e: ChangeEvent<HTMLInputElement>) {
     const selected = e.target.files?.[0]
     if (!selected) return
 
+    setGifUrl(null)
     setFile(selected)
     // Object URL is revoked when it's replaced or cleared, below.
     setPreview((old) => {
@@ -43,6 +49,35 @@ export function PostComposer({
     if (preview) URL.revokeObjectURL(preview)
     setPreview(null)
     setFile(null)
+    setGifUrl(null)
+  }
+
+  /** Insert at the caret rather than appending, so it lands where you were typing. */
+  function insertEmoji(emoji: string) {
+    const el = contentRef.current
+    if (!el) {
+      setContent((c) => c + emoji)
+    } else {
+      const start = el.selectionStart ?? content.length
+      const end = el.selectionEnd ?? content.length
+      const next = content.slice(0, start) + emoji + content.slice(end)
+      setContent(next)
+      // Restore the caret after React re-renders with the new value.
+      window.requestAnimationFrame(() => {
+        el.focus()
+        el.setSelectionRange(start + emoji.length, start + emoji.length)
+      })
+    }
+    setPicker(null)
+  }
+
+  function chooseGif(gif: PickedGif) {
+    // A GIF replaces an uploaded image: a post carries one image_url.
+    if (preview) URL.revokeObjectURL(preview)
+    setFile(null)
+    setPreview(gif.url)
+    setGifUrl(gif.url)
+    setPicker(null)
   }
 
   function reset() {
@@ -64,7 +99,7 @@ export function PostComposer({
     setError('')
 
     try {
-      const imageUrl = file ? await uploadImage('post-images', user.id, file) : null
+      const imageUrl = file ? await uploadImage('post-images', user.id, file) : gifUrl
 
       const { error: postError } = await supabase.from('community_posts').insert({
         user_id: user.id,
@@ -107,12 +142,30 @@ export function PostComposer({
           </label>
           <textarea
             id="post-content"
+            ref={contentRef}
             value={content}
             onChange={(e) => setContent(e.target.value)}
             rows={4}
             className="input resize-none"
             placeholder="Share the details…"
           />
+
+          <div className="mt-2 flex gap-2">
+            <button
+              type="button"
+              onClick={() => setPicker('emoji')}
+              className="btn-secondary !px-3 !py-1.5 text-xs"
+            >
+              😊 Emoji
+            </button>
+            <button
+              type="button"
+              onClick={() => setPicker('gif')}
+              className="btn-secondary !px-3 !py-1.5 text-xs"
+            >
+              GIF
+            </button>
+          </div>
         </div>
 
         <div>
@@ -137,10 +190,14 @@ export function PostComposer({
         </div>
 
         <div>
-          <span className="label">Image (optional)</span>
+          <span className="label">{gifUrl ? 'GIF' : 'Image (optional)'}</span>
           {preview ? (
             <div className="relative">
-              <img src={preview} alt="" className="max-h-48 w-full rounded-xl object-cover" />
+              <img
+                src={preview}
+                alt=""
+                className={`max-h-48 w-full rounded-xl ${gifUrl ? 'object-contain' : 'object-cover'}`}
+              />
               <button
                 type="button"
                 onClick={clearImage}
@@ -170,6 +227,14 @@ export function PostComposer({
           </button>
         </div>
       </div>
+
+      <LazyMediaPicker
+        open={picker !== null}
+        onClose={() => setPicker(null)}
+        onPickEmoji={insertEmoji}
+        onPickGif={chooseGif}
+        initialTab={picker ?? 'emoji'}
+      />
     </Modal>
   )
 }
