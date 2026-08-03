@@ -27,6 +27,18 @@ export function AuthLayout({
         </div>
 
         {footer ? <div className="mt-5 text-center text-sm text-slate-600">{footer}</div> : null}
+
+        {/* Plain anchors, not Links: these are static pages outside the SPA, so
+            they must resolve without the router (and without JS at all). */}
+        <p className="mt-6 text-center text-xs text-slate-400">
+          <a href="/privacy" className="hover:text-slate-600 hover:underline">
+            Privacy Policy
+          </a>
+          <span aria-hidden="true"> · </span>
+          <a href="/terms" className="hover:text-slate-600 hover:underline">
+            Terms of Service
+          </a>
+        </p>
       </div>
     </div>
   )

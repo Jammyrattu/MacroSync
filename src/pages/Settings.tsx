@@ -410,6 +410,16 @@ export function Settings() {
         <LogoutIcon className="size-4" />
         Log out
       </button>
+
+      <p className="pb-2 text-center text-xs text-slate-400">
+        <a href="/privacy" className="hover:text-slate-600 hover:underline">
+          Privacy Policy
+        </a>
+        <span aria-hidden="true"> · </span>
+        <a href="/terms" className="hover:text-slate-600 hover:underline">
+          Terms of Service
+        </a>
+      </p>
     </div>
   )
 }
