@@ -219,10 +219,10 @@ export function HealthStats({
         </p>
       ) : (
         <>
-          {/* Scrolls within the card's padding. Bleeding it to the card edge
-              made the row wider than the card, which read as broken rather
-              than scrollable. */}
-          <div className="scroll-x mt-4 flex snap-x snap-mandatory gap-3 pb-1">
+          {/* A wrapping grid, not a scrolling row: every tile should be visible
+              without sideways scrolling, on a phone as much as on a desktop.
+              Two columns is what fits a narrow screen at this type size. */}
+          <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
             {tiles.map((tile) => (
               <StatTile
                 key={tile.key}

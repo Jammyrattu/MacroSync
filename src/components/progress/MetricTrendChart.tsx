@@ -68,8 +68,11 @@ export function MetricTrendChart({
           tick={{ fontSize: 11, fill: '#64748b' }}
           tickLine={false}
           axisLine={false}
-          width={48}
-          tickFormatter={(v: number) => format(v)}
+          width={44}
+          // Five-figure step counts overflowed the axis gutter and rendered
+          // clipped ("12,790" as "1,279"). Thousands are abbreviated so the
+          // label always fits the width reserved for it.
+          tickFormatter={(v: number) => (v >= 10000 ? `${Math.round(v / 1000)}k` : format(v))}
         />
 
         {goal !== null ? (

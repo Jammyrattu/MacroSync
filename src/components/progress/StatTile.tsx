@@ -56,15 +56,15 @@ export function StatTile({
 
   return (
     <div
-      // grow + basis + shrink-0: a handful of tiles spread to fill the card,
-      // more than fit keep their width and the row scrolls instead of squashing.
-      className={`relative shrink-0 grow basis-52 snap-start rounded-2xl border p-4 text-left transition-colors ${
+      // Sized by the grid it sits in, so it fits whatever column count the
+      // viewport allows rather than forcing a fixed width.
+      className={`relative flex h-full flex-col rounded-2xl border p-4 text-left transition-colors ${
         selected
           ? 'border-brand-400 bg-brand-50/60 ring-1 ring-brand-400'
           : 'border-slate-200 bg-white hover:border-slate-300'
       }`}
     >
-      <div className="flex items-center gap-2">
+      <div className="flex items-start gap-2">
         {/* The whole header is the select target; the (i) sits outside it so
             asking what a metric means doesn't also change the chart. */}
         <button
@@ -81,7 +81,11 @@ export function StatTile({
           >
             {tile.icon}
           </span>
-          <span className="truncate text-sm font-medium text-slate-600">{tile.label}</span>
+          {/* Wraps rather than truncates — in a two-column phone layout
+              "Active calories" needs the second line. */}
+          <span className="min-w-0 text-sm leading-tight font-medium text-slate-600">
+            {tile.label}
+          </span>
         </button>
 
         <button
@@ -104,7 +108,9 @@ export function StatTile({
         <span className="mt-0.5 block text-xs text-slate-400">{tile.caption}</span>
       </button>
 
-      <div className="mt-3 min-h-[2.25rem]">
+      {/* mt-auto pins this to the bottom so tiles of differing header height
+          still line their footers up across a grid row. */}
+      <div className="mt-auto min-h-[2.25rem] pt-3">
         {tile.goal !== null ? (
           <>
             <div
