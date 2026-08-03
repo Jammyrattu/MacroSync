@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { scaleNutrients } from '@/lib/nutrition'
-import { lastNDays } from '@/lib/dates'
+import { addDays, todayKey } from '@/lib/dates'
 import type { FoodLog } from '@/types/db'
 
 export interface DayCalories {
@@ -11,18 +11,22 @@ export interface DayCalories {
 }
 
 /**
- * Daily calorie totals for the last `days` days.
+ * Daily calorie totals for the `days` days ending on `endDate` (today by
+ * default), so the Progress page's date navigator can move the window.
  *
  * Days with nothing logged are returned as zero rather than omitted — a gap in
  * a time axis reads as "no data available", which is a different claim from
  * "nothing eaten", and the bar chart needs the full run of dates either way.
  */
-export function useCalorieHistory(days: number) {
+export function useCalorieHistory(days: number, endDate?: string) {
   const { user } = useAuth()
   const [logs, setLogs] = useState<FoodLog[]>([])
   const [loading, setLoading] = useState(true)
 
-  const dateKeys = useMemo(() => lastNDays(days), [days])
+  const dateKeys = useMemo(() => {
+    const end = endDate ?? todayKey()
+    return Array.from({ length: days }, (_, i) => addDays(end, -(days - 1 - i)))
+  }, [days, endDate])
 
   const refresh = useCallback(async () => {
     if (!user) return

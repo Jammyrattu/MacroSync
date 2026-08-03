@@ -73,17 +73,9 @@ const MAPPINGS: Mapping[] = [
     aggregate: 'sum',
     read: (p) => num((payload(p, 'distance').distance as Record<string, unknown>)?.meters),
   },
-  {
-    dataType: 'sleep',
-    metric: 'sleep_minutes',
-    aggregate: 'sum',
-    read: (p) => {
-      const interval = payload(p, 'sleep').interval as Record<string, string> | undefined
-      if (!interval?.startTime || !interval?.endTime) return null
-      const ms = Date.parse(interval.endTime) - Date.parse(interval.startTime)
-      return Number.isFinite(ms) && ms > 0 ? Math.round(ms / 60000) : null
-    },
-  },
+  // Sleep is handled separately by readSleepStages — a single data point
+  // expands into up to five metrics, which the one-value-per-point shape here
+  // can't express.
   {
     dataType: 'exercise',
     metric: 'exercise_minutes',
@@ -96,6 +88,80 @@ const MAPPINGS: Mapping[] = [
     },
   },
 ]
+
+/**
+ * Sleep stages.
+ *
+ * EXPECTED UPSTREAM SHAPE — one dataPoint per sleep session:
+ *
+ *   {
+ *     "sleep": {
+ *       "interval": { "startTime": "2026-08-02T23:10:00Z", "endTime": "2026-08-03T07:05:00Z" },
+ *       "stages": [
+ *         { "stage": "DEEP",  "interval": { "startTime": "...", "endTime": "..." } },
+ *         { "stage": "LIGHT", "interval": { "startTime": "...", "endTime": "..." } },
+ *         { "stage": "REM",   "interval": { "startTime": "...", "endTime": "..." } },
+ *         { "stage": "AWAKE", "interval": { "startTime": "...", "endTime": "..." } }
+ *       ]
+ *     }
+ *   }
+ *
+ * Stage names are matched loosely (DEEP / SLOW_WAVE, LIGHT / CORE, REM,
+ * AWAKE / WAKE), so a provider using its own vocabulary still lands in the
+ * right bucket. If `stages` is missing entirely we fall back to the session
+ * interval and record total sleep only — a breakdown is a bonus, not a
+ * requirement.
+ *
+ * WHAT WE STORE, per day:
+ *   sleep_minutes        deep + light + rem   (time asleep; excludes awake)
+ *   sleep_deep_minutes / sleep_light_minutes / sleep_rem_minutes
+ *   sleep_awake_minutes  awake in bed         (NOT part of sleep_minutes)
+ */
+const STAGE_METRIC: Record<string, string> = {
+  DEEP: 'sleep_deep_minutes',
+  SLOW_WAVE: 'sleep_deep_minutes',
+  LIGHT: 'sleep_light_minutes',
+  CORE: 'sleep_light_minutes',
+  REM: 'sleep_rem_minutes',
+  AWAKE: 'sleep_awake_minutes',
+  WAKE: 'sleep_awake_minutes',
+}
+
+const minutesBetween = (interval?: Record<string, string>): number | null => {
+  if (!interval?.startTime || !interval?.endTime) return null
+  const ms = Date.parse(interval.endTime) - Date.parse(interval.startTime)
+  return Number.isFinite(ms) && ms > 0 ? Math.round(ms / 60000) : null
+}
+
+/** Metric -> minutes for one sleep session. */
+function readSleepStages(point: Record<string, unknown>): Record<string, number> {
+  const sleep = payload(point, 'sleep')
+  const stages = sleep.stages as { stage?: string; interval?: Record<string, string> }[] | undefined
+  const out: Record<string, number> = {}
+
+  if (Array.isArray(stages) && stages.length > 0) {
+    for (const stage of stages) {
+      const metric = STAGE_METRIC[(stage.stage ?? '').toUpperCase()]
+      const mins = minutesBetween(stage.interval)
+      if (!metric || mins === null) continue
+      out[metric] = (out[metric] ?? 0) + mins
+    }
+
+    const asleep =
+      (out.sleep_deep_minutes ?? 0) +
+      (out.sleep_light_minutes ?? 0) +
+      (out.sleep_rem_minutes ?? 0)
+
+    if (asleep > 0) {
+      out.sleep_minutes = asleep
+      return out
+    }
+  }
+
+  // No usable stages — record the session length as total sleep.
+  const total = minutesBetween(sleep.interval as Record<string, string> | undefined)
+  return total === null ? {} : { sleep_minutes: total }
+}
 
 /** The day a point belongs to, from whichever time field it carries. */
 function pointDate(point: Record<string, unknown>, key: string): string | null {
@@ -235,6 +301,40 @@ Deno.serve(async (req) => {
         mapping.aggregate === 'sum' ? (current ?? 0) + value : value,
       )
       totals.set(day, forDay)
+    }
+  }
+
+  // Sleep, separately: one session expands into several metrics.
+  {
+    const endpoint =
+      `${HEALTH_API}/sleep/dataPoints` +
+      `?filter=${encodeURIComponent(`sleep.interval.civil_start_time >= "${since}"`)}`
+
+    const res = await fetch(endpoint, {
+      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+    })
+
+    if (!res.ok) {
+      skipped.push('sleep')
+    } else {
+      const body = (await res.json()) as { dataPoints?: Record<string, unknown>[] }
+
+      for (const point of body.dataPoints ?? []) {
+        // A night that starts at 23:10 belongs to the morning it ends on —
+        // that's the day people mean when they say "last night's sleep".
+        const interval = payload(point, 'sleep').interval as Record<string, string> | undefined
+        const stamp = interval?.endTime ?? interval?.startTime
+        if (!stamp) continue
+        const day = new Date(stamp)
+        if (Number.isNaN(day.getTime())) continue
+        const key = day.toISOString().slice(0, 10)
+
+        const forDay = totals.get(key) ?? new Map<string, number>()
+        for (const [metric, minutes] of Object.entries(readSleepStages(point))) {
+          forDay.set(metric, (forDay.get(metric) ?? 0) + minutes)
+        }
+        totals.set(key, forDay)
+      }
     }
   }
 

@@ -1,59 +1,56 @@
 import { Link } from 'react-router'
-import { useHealthSync } from '@/hooks/useHealthSync'
-import type { HealthMetric, HealthMetricName } from '@/types/db'
+import type { HealthConnection, HealthMetric, HealthMetricName } from '@/types/db'
+import type { SyncResult } from '@/hooks/useHealthSync'
 import { Spinner } from '@/components/ui/Spinner'
 import { Alert } from '@/components/ui/Alert'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { ChartIcon } from '@/components/ui/icons'
+import { formatMinutes } from '@/lib/progressViz'
 
 const TILES: {
   metric: HealthMetricName
   label: string
-  format: (total: number, days: number) => string
-  sub: string
+  format: (value: number) => string
 }[] = [
-  {
-    metric: 'steps',
-    label: 'Steps',
-    sub: 'daily average',
-    format: (total, days) => Math.round(total / Math.max(days, 1)).toLocaleString(),
-  },
-  {
-    metric: 'active_calories',
-    label: 'Active kcal',
-    sub: 'daily average',
-    format: (total, days) => Math.round(total / Math.max(days, 1)).toLocaleString(),
-  },
-  {
-    metric: 'sleep_minutes',
-    label: 'Sleep',
-    sub: 'nightly average',
-    format: (total, days) => {
-      const mins = Math.round(total / Math.max(days, 1))
-      return `${Math.floor(mins / 60)}h ${String(mins % 60).padStart(2, '0')}m`
-    },
-  },
-  {
-    metric: 'exercise_minutes',
-    label: 'Exercise',
-    sub: 'total, 30 days',
-    format: (total) => `${Math.round(total)}m`,
-  },
+  { metric: 'steps', label: 'Steps', format: (v) => Math.round(v).toLocaleString() },
+  { metric: 'active_calories', label: 'Active kcal', format: (v) => Math.round(v).toLocaleString() },
+  { metric: 'distance_m', label: 'Distance', format: (v) => `${(v / 1000).toFixed(1)} km` },
+  { metric: 'exercise_minutes', label: 'Exercise', format: formatMinutes },
 ]
 
-/** Days that actually carry a figure — averaging over 30 when only 4 synced lies. */
-function daysWithData(metrics: HealthMetric[], metric: HealthMetricName): number {
-  return new Set(metrics.filter((m) => m.metric === metric).map((m) => m.metric_date)).size
-}
+const sumFor = (metrics: HealthMetric[], metric: string) =>
+  metrics.filter((m) => m.metric === metric).reduce((sum, m) => sum + Number(m.value), 0)
 
-function total(metrics: HealthMetric[], metric: HealthMetricName): number {
-  return metrics.filter((m) => m.metric === metric).reduce((sum, m) => sum + Number(m.value), 0)
-}
+/** Days carrying a figure — averaging over 30 when only four synced would lie. */
+const daysWithData = (metrics: HealthMetric[], metric: string) =>
+  new Set(metrics.filter((m) => m.metric === metric).map((m) => m.metric_date)).size
 
-/** Google Health figures on the Progress page. Owner-only, enforced by RLS. */
-export function HealthStats() {
-  const { connection, metrics, loading, busy, error, lastResult, sync } = useHealthSync(30)
-
+/**
+ * Google Health figures for the selected day, each with its 30-day average
+ * underneath for context. Owner-only, enforced by RLS.
+ *
+ * State is owned by Progress so one fetch feeds this, the sleep card and the
+ * date navigator together.
+ */
+export function HealthStats({
+  connection,
+  dayMetrics,
+  windowMetrics,
+  loading,
+  busy,
+  error,
+  lastResult,
+  onSync,
+}: {
+  connection: HealthConnection | null
+  dayMetrics: HealthMetric[]
+  windowMetrics: HealthMetric[]
+  loading: boolean
+  busy: boolean
+  error: string
+  lastResult: SyncResult | null
+  onSync: () => void
+}) {
   if (loading) {
     return (
       <section className="card p-5">
@@ -82,7 +79,9 @@ export function HealthStats() {
     )
   }
 
-  const hasData = metrics.length > 0
+  const visible = TILES.filter(
+    (tile) => sumFor(dayMetrics, tile.metric) > 0 || daysWithData(windowMetrics, tile.metric) > 0,
+  )
 
   return (
     <section className="card p-5">
@@ -91,7 +90,7 @@ export function HealthStats() {
         <button
           type="button"
           disabled={busy}
-          onClick={() => void sync()}
+          onClick={onSync}
           className="btn-secondary !px-3 !py-1.5 text-xs"
         >
           {busy ? 'Syncing…' : 'Sync now'}
@@ -110,16 +109,17 @@ export function HealthStats() {
         </p>
       ) : null}
 
-      {!hasData ? (
+      {visible.length === 0 ? (
         <p className="mt-3 text-sm text-slate-500">
           Nothing synced yet. Press “Sync now” to pull the last 30 days.
         </p>
       ) : (
         <>
           <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {TILES.map((tile) => {
-              const days = daysWithData(metrics, tile.metric)
-              if (days === 0) return null
+            {visible.map((tile) => {
+              const value = sumFor(dayMetrics, tile.metric)
+              const days = daysWithData(windowMetrics, tile.metric)
+              const average = days > 0 ? sumFor(windowMetrics, tile.metric) / days : 0
 
               return (
                 <div key={tile.metric} className="rounded-2xl bg-slate-50 p-4 text-center">
@@ -127,16 +127,19 @@ export function HealthStats() {
                     {tile.label}
                   </p>
                   <p className="mt-1 text-2xl font-bold text-slate-900">
-                    {tile.format(total(metrics, tile.metric), days)}
+                    {value > 0 ? tile.format(value) : '—'}
                   </p>
-                  <p className="mt-0.5 text-[11px] text-slate-400">{tile.sub}</p>
+                  <p className="mt-0.5 text-[11px] text-slate-400">
+                    {days > 0 ? `avg ${tile.format(average)}` : 'no data'}
+                  </p>
                 </div>
               )
             })}
           </div>
 
           <p className="mt-3 text-xs text-slate-400">
-            From Google Health, visible only to you.
+            Selected day, with the {daysWithData(windowMetrics, 'steps') || 30}-day average below
+            each. From Google Health, visible only to you.
           </p>
         </>
       )}

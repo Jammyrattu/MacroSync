@@ -1,29 +1,53 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useCalorieHistory } from '@/hooks/useCalorieHistory'
-import { todayKey } from '@/lib/dates'
+import { useHealthSync } from '@/hooks/useHealthSync'
+import { formatDateLabel, todayKey } from '@/lib/dates'
 import type { WeightLog } from '@/types/db'
 import { WeightChart } from '@/components/progress/WeightChart'
 import { CalorieHistoryChart } from '@/components/progress/CalorieHistoryChart'
 import { HealthStats } from '@/components/progress/HealthStats'
+import { SleepCard } from '@/components/progress/SleepCard'
+import { MacroBreakdown } from '@/components/progress/MacroBreakdown'
+import { DateNavigator } from '@/components/progress/DateNavigator'
+import { HISTORY_DAYS } from '@/lib/progressViz'
 import { Alert } from '@/components/ui/Alert'
 import { Spinner } from '@/components/ui/Spinner'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { ChartIcon } from '@/components/ui/icons'
 
-/** Weight trend plus calorie history against goal. */
+/**
+ * Progress: health figures, sleep, macros, weight and calorie history.
+ *
+ * One selected date drives the whole page. Day-level cards show that date; the
+ * charts show the 30-day window ending on it, so moving the navigator moves
+ * every section together rather than just the card you were looking at.
+ */
 export function Progress() {
   const { user, nutritionProfile, refreshProfile } = useAuth()
+  const [date, setDate] = useState(todayKey())
   const [weightLogs, setWeightLogs] = useState<WeightLog[]>([])
   const [loadingWeights, setLoadingWeights] = useState(true)
   const [newWeight, setNewWeight] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  const [range, setRange] = useState<7 | 30>(7)
 
-  const { series, loading: loadingCalories } = useCalorieHistory(range)
+  const { series, loading: loadingCalories } = useCalorieHistory(HISTORY_DAYS, date)
   const goal = nutritionProfile?.calorie_target ?? 2000
+
+  const health = useHealthSync(HISTORY_DAYS)
+
+  // The loaded month never extends past the selected day, so averages describe
+  // the same window the charts draw.
+  const windowMetrics = useMemo(
+    () => health.metrics.filter((m) => m.metric_date <= date),
+    [health.metrics, date],
+  )
+  const dayMetrics = useMemo(
+    () => health.metrics.filter((m) => m.metric_date === date),
+    [health.metrics, date],
+  )
 
   const loadWeights = useCallback(async () => {
     if (!user) return
@@ -41,6 +65,14 @@ export function Progress() {
     void loadWeights()
   }, [loadWeights])
 
+  // Seed the input with whatever is already recorded for the selected day, so
+  // the field describes that day rather than carrying a stale draft across it.
+  useEffect(() => {
+    const existing = weightLogs.find((log) => log.log_date === date)
+    setNewWeight(existing ? String(Number(existing.weight_kg)) : '')
+    setError('')
+  }, [date, weightLogs])
+
   async function handleAddWeight(e: FormEvent) {
     e.preventDefault()
     if (!user) return
@@ -54,11 +86,11 @@ export function Progress() {
     setSaving(true)
     setError('')
 
-    // One entry per day — re-logging replaces today's figure.
+    // One entry per day — re-logging replaces that day's figure.
     const { error: saveError } = await supabase
       .from('weight_logs')
       .upsert(
-        { user_id: user.id, weight_kg: value, log_date: todayKey() },
+        { user_id: user.id, weight_kg: value, log_date: date },
         { onConflict: 'user_id,log_date' },
       )
 
@@ -68,24 +100,49 @@ export function Progress() {
       return
     }
 
-    // Keep the nutrition profile's weight in step so recalculating targets
-    // later uses the current figure rather than the onboarding one.
-    await supabase.from('nutrition_profiles').update({ weight_kg: value }).eq('user_id', user.id)
+    // Only the most recent entry should drive the stored profile weight —
+    // correcting a figure from three weeks ago shouldn't rewrite today's.
+    const isLatest = weightLogs.every((log) => log.log_date <= date)
+    if (isLatest) {
+      await supabase.from('nutrition_profiles').update({ weight_kg: value }).eq('user_id', user.id)
+    }
 
-    setNewWeight('')
     setSaving(false)
     await Promise.all([loadWeights(), refreshProfile()])
   }
 
-  const latest = weightLogs.at(-1)
-  const first = weightLogs[0]
+  // Weight history up to the selected day, so the chart matches the navigator.
+  const shownWeights = useMemo(
+    () => weightLogs.filter((log) => log.log_date <= date),
+    [weightLogs, date],
+  )
+  const latest = shownWeights.at(-1)
+  const first = shownWeights[0]
   const change = latest && first ? Number(latest.weight_kg) - Number(first.weight_kg) : 0
+  const onSelectedDay = weightLogs.find((log) => log.log_date === date)
 
   return (
     <div className="space-y-4">
       <h1 className="text-xl font-bold tracking-tight text-slate-900">Progress</h1>
 
-      <HealthStats />
+      <DateNavigator date={date} onChange={setDate} />
+
+      <HealthStats
+        connection={health.connection}
+        dayMetrics={dayMetrics}
+        windowMetrics={windowMetrics}
+        loading={health.loading}
+        busy={health.busy}
+        error={health.error}
+        lastResult={health.lastResult}
+        onSync={() => void health.sync()}
+      />
+
+      {health.connection ? (
+        <SleepCard metrics={dayMetrics} windowMetrics={windowMetrics} />
+      ) : null}
+
+      <MacroBreakdown date={date} />
 
       {/* Weight */}
       <section className="card p-5">
@@ -93,8 +150,9 @@ export function Progress() {
           <h2 className="font-semibold text-slate-900">Weight</h2>
           {latest ? (
             <p className="text-sm text-slate-500">
-              Now <strong className="text-slate-900">{Number(latest.weight_kg)} kg</strong>
-              {weightLogs.length > 1 ? (
+              {onSelectedDay ? 'On this day' : 'Latest'}{' '}
+              <strong className="text-slate-900">{Number(latest.weight_kg)} kg</strong>
+              {shownWeights.length > 1 ? (
                 <>
                   {' · '}
                   <span className={change <= 0 ? 'text-brand-700' : 'text-slate-700'}>
@@ -115,11 +173,11 @@ export function Progress() {
             value={newWeight}
             onChange={(e) => setNewWeight(e.target.value)}
             className="input"
-            placeholder="Today's weight (kg)"
-            aria-label="Today's weight in kilograms"
+            placeholder={`Weight for ${formatDateLabel(date)} (kg)`}
+            aria-label={`Weight for ${formatDateLabel(date)} in kilograms`}
           />
           <button type="submit" disabled={saving} className="btn-primary shrink-0">
-            {saving ? 'Saving…' : 'Log'}
+            {saving ? 'Saving…' : onSelectedDay ? 'Update' : 'Log'}
           </button>
         </form>
 
@@ -130,14 +188,14 @@ export function Progress() {
             <div className="py-12">
               <Spinner />
             </div>
-          ) : weightLogs.length < 2 ? (
+          ) : shownWeights.length < 2 ? (
             <EmptyState
               icon={<ChartIcon className="size-8" />}
               title="Not enough data yet"
               description="Log your weight on at least two days to see the trend line."
             />
           ) : (
-            <WeightChart logs={weightLogs} />
+            <WeightChart logs={shownWeights} />
           )}
         </div>
       </section>
@@ -146,21 +204,9 @@ export function Progress() {
       <section className="card p-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="font-semibold text-slate-900">Calories vs goal</h2>
-          <div className="flex gap-1 rounded-lg bg-slate-100 p-1">
-            {([7, 30] as const).map((option) => (
-              <button
-                key={option}
-                type="button"
-                onClick={() => setRange(option)}
-                aria-pressed={range === option}
-                className={`rounded-md px-3 py-1 text-xs font-semibold transition-colors ${
-                  range === option ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600'
-                }`}
-              >
-                {option} days
-              </button>
-            ))}
-          </div>
+          <p className="text-xs text-slate-500">
+            {HISTORY_DAYS} days to {formatDateLabel(date)}
+          </p>
         </div>
 
         <div className="mt-4">
