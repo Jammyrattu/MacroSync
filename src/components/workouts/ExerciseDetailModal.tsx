@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { EXERCISE_GUIDES, demoFrames } from '@/data/exerciseGuides'
 import { MUSCLE_GROUP_LABELS, type MuscleGroup } from '@/data/exercises'
+import { useExercises } from '@/hooks/useExercises'
 import { Modal } from '@/components/ui/Modal'
 
 /** How long each of the two frames is held, in ms. */
@@ -56,7 +57,12 @@ export function ExerciseDetailModal({
   equipment: string
   onClose: () => void
 }) {
-  const guide = exerciseId ? EXERCISE_GUIDES[exerciseId] : undefined
+  const { exercises } = useExercises()
+
+  // The database copy wins so an admin's edits show up immediately; the bundled
+  // guide is the fallback when the table can't be read.
+  const fromDb = exerciseId ? exercises.find((e) => e.id === exerciseId) : undefined
+  const guide = fromDb ?? (exerciseId ? EXERCISE_GUIDES[exerciseId] : undefined)
   const frames = demoFrames(guide?.demo ?? null)
 
   return (

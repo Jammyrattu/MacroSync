@@ -23,8 +23,13 @@ export function PostCard({
   onChanged: () => void
   onDelete: () => void
 }) {
-  const { user } = useAuth()
+  const { user, isStaff } = useAuth()
   const [showComments, setShowComments] = useState(false)
+
+  const isOwn = post.user_id === user?.id
+  // Staff removing someone else's post is moderation, so it's confirmed and
+  // labelled differently from tidying up your own.
+  const canDelete = isOwn || isStaff
 
   return (
     <article className="card overflow-hidden">
@@ -47,12 +52,17 @@ export function PostCard({
           {CATEGORY_LABELS[post.category]}
         </span>
 
-        {post.user_id === user?.id ? (
+        {canDelete ? (
           <button
             type="button"
-            onClick={onDelete}
+            onClick={() => {
+              if (isOwn || window.confirm(`Remove this post by ${post.profiles?.display_name ?? 'this user'}?`)) {
+                onDelete()
+              }
+            }}
             className="btn-ghost !p-1.5 shrink-0 text-slate-400 hover:text-red-600"
-            aria-label="Delete post"
+            aria-label={isOwn ? 'Delete post' : 'Remove post as moderator'}
+            title={isOwn ? 'Delete post' : 'Remove as moderator'}
           >
             <TrashIcon className="size-4" />
           </button>

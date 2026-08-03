@@ -163,6 +163,33 @@ export interface Follow {
   created_at: string
 }
 
+/**
+ * Roles are stored in their own table, not as a profiles column: "profiles
+ * updatable by owner" is a row-level policy, so a column there would let any
+ * user promote themselves. No row means an ordinary user.
+ */
+export type UserRole = 'moderator' | 'admin'
+
+export interface UserRoleRow {
+  user_id: string
+  role: UserRole
+  granted_by: string | null
+  created_at: string
+}
+
+/** An exercise as stored in the database — admins can edit these. */
+export interface ExerciseRow {
+  id: string
+  name: string
+  muscle_group: string
+  equipment: string
+  demo: string | null
+  steps: string[]
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+
 /** Author fields embedded via the FK to profiles — see the migration's FK note. */
 export type WithAuthor<T> = T & {
   profiles: Pick<Profile, 'id' | 'display_name' | 'avatar_url'> | null

@@ -21,7 +21,7 @@ import { LogoutIcon } from '@/components/ui/icons'
  * calculateTargets() used at onboarding, so the two can never disagree.
  */
 export function Settings() {
-  const { user, profile, nutritionProfile, refreshProfile, signOut } = useAuth()
+  const { user, profile, nutritionProfile, role, isAdmin, refreshProfile, signOut } = useAuth()
 
   const [displayName, setDisplayName] = useState('')
   const [bio, setBio] = useState('')
@@ -212,6 +212,17 @@ export function Settings() {
             <Link to={`/u/${user.id}`} className="btn-secondary w-full">
               View your public profile
             </Link>
+          ) : null}
+
+          {isAdmin ? (
+            <Link to="/admin" className="btn-secondary w-full">
+              Admin console
+            </Link>
+          ) : null}
+          {role === 'moderator' ? (
+            <p className="text-xs text-slate-500">
+              You are a moderator — you can remove any community post or comment.
+            </p>
           ) : null}
         </div>
       </section>

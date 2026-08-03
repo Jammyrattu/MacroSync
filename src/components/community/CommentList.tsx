@@ -17,7 +17,7 @@ export function CommentList({
   comments: WithAuthor<Comment>[]
   onChanged: () => void
 }) {
-  const { user } = useAuth()
+  const { user, isStaff } = useAuth()
   const [draft, setDraft] = useState('')
   const [posting, setPosting] = useState(false)
 
@@ -69,12 +69,21 @@ export function CommentList({
                 <p className="text-sm break-words text-slate-700">{comment.content}</p>
               </div>
 
-              {comment.user_id === user?.id ? (
+              {comment.user_id === user?.id || isStaff ? (
                 <button
                   type="button"
-                  onClick={() => void handleDelete(comment.id)}
+                  onClick={() => {
+                    const own = comment.user_id === user?.id
+                    if (own || window.confirm('Remove this comment?')) {
+                      void handleDelete(comment.id)
+                    }
+                  }}
                   className="btn-ghost !p-1 shrink-0 text-slate-400 hover:text-red-600"
-                  aria-label="Delete comment"
+                  aria-label={
+                    comment.user_id === user?.id
+                      ? 'Delete comment'
+                      : 'Remove comment as moderator'
+                  }
                 >
                   <TrashIcon className="size-3.5" />
                 </button>

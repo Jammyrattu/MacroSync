@@ -1,11 +1,6 @@
 import { useMemo, useState } from 'react'
-import {
-  MUSCLE_GROUPS,
-  MUSCLE_GROUP_LABELS,
-  filterExercises,
-  type Exercise,
-  type MuscleGroup,
-} from '@/data/exercises'
+import { MUSCLE_GROUPS, MUSCLE_GROUP_LABELS, type Exercise, type MuscleGroup } from '@/data/exercises'
+import { useExercises } from '@/hooks/useExercises'
 import { SearchIcon } from '@/components/ui/icons'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { ExerciseDetailModal } from '@/components/workouts/ExerciseDetailModal'
@@ -26,7 +21,18 @@ export function ExerciseLibrary({
   const [group, setGroup] = useState<MuscleGroup | 'all'>('all')
   const [detail, setDetail] = useState<Exercise | null>(null)
 
-  const results = useMemo(() => filterExercises(query, group), [query, group])
+  const { exercises } = useExercises()
+
+  const results = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    return exercises.filter((exercise) => {
+      if (group !== 'all' && exercise.muscle_group !== group) return false
+      if (!q) return true
+      return (
+        exercise.name.toLowerCase().includes(q) || exercise.equipment.toLowerCase().includes(q)
+      )
+    })
+  }, [exercises, query, group])
 
   return (
     <div className="space-y-3">
