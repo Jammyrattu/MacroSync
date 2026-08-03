@@ -40,6 +40,10 @@ export interface NutritionProfile {
   protein_target: number | null
   carbs_target: number | null
   fat_target: number | null
+  /** Daily activity goals. null means "not set", which the tiles display. */
+  step_goal: number | null
+  active_calorie_goal: number | null
+  sleep_goal_minutes: number | null
   onboarded: boolean
   created_at: string
   updated_at: string

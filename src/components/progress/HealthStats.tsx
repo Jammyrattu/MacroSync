@@ -1,41 +1,92 @@
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router'
-import type { HealthConnection, HealthMetric, HealthMetricName } from '@/types/db'
+import type { HealthConnection, HealthMetric, NutritionProfile } from '@/types/db'
 import type { SyncResult } from '@/hooks/useHealthSync'
+import { addDays } from '@/lib/dates'
+import { HISTORY_DAYS, formatMinutes } from '@/lib/progressViz'
+import { StatTile, type StatTileData } from './StatTile'
+import { MetricTrendChart, type TrendPoint } from './MetricTrendChart'
 import { Spinner } from '@/components/ui/Spinner'
 import { Alert } from '@/components/ui/Alert'
 import { EmptyState } from '@/components/ui/EmptyState'
-import { ChartIcon } from '@/components/ui/icons'
-import { formatMinutes } from '@/lib/progressViz'
+import {
+  ChartIcon,
+  DumbbellIcon,
+  FlameIcon,
+  FootprintsIcon,
+  MapPinIcon,
+  MoonIcon,
+} from '@/components/ui/icons'
 
-const TILES: {
-  metric: HealthMetricName
-  label: string
-  format: (value: number) => string
-}[] = [
-  { metric: 'steps', label: 'Steps', format: (v) => Math.round(v).toLocaleString() },
-  { metric: 'active_calories', label: 'Active kcal', format: (v) => Math.round(v).toLocaleString() },
-  { metric: 'distance_m', label: 'Distance', format: (v) => `${(v / 1000).toFixed(1)} km` },
-  { metric: 'exercise_minutes', label: 'Exercise', format: formatMinutes },
-]
+const km = (m: number) => `${(m / 1000).toFixed(2)} km`
+const whole = (n: number) => Math.round(n).toLocaleString()
 
-const sumFor = (metrics: HealthMetric[], metric: string) =>
-  metrics.filter((m) => m.metric === metric).reduce((sum, m) => sum + Number(m.value), 0)
+/** Metric definitions. Goals only exist for the three the app lets you set. */
+const METRICS = [
+  {
+    key: 'steps',
+    label: 'Steps',
+    icon: <FootprintsIcon className="size-4" />,
+    format: whole,
+    goalNoun: 'step',
+    goalField: 'step_goal' as const,
+    help: 'Steps counted by your phone or watch for the selected day.',
+  },
+  {
+    key: 'active_calories',
+    label: 'Active calories',
+    icon: <FlameIcon className="size-4" />,
+    format: (v: number) => `${whole(v)} kcal`,
+    goalNoun: 'active-calorie',
+    goalField: 'active_calorie_goal' as const,
+    help: 'Calories burned through movement, on top of what your body uses at rest.',
+  },
+  {
+    key: 'distance_m',
+    label: 'Distance',
+    icon: <MapPinIcon className="size-4" />,
+    format: km,
+    goalNoun: 'distance',
+    goalField: null,
+    help: 'Distance covered walking, running or cycling on the selected day.',
+  },
+  {
+    key: 'sleep_minutes',
+    label: 'Sleep',
+    icon: <MoonIcon className="size-4" />,
+    format: formatMinutes,
+    goalNoun: 'sleep',
+    goalField: 'sleep_goal_minutes' as const,
+    help: 'Time asleep for the night ending on the selected day. Awake time in bed is excluded.',
+  },
+  {
+    key: 'exercise_minutes',
+    label: 'Exercise',
+    icon: <DumbbellIcon className="size-4" />,
+    format: formatMinutes,
+    goalNoun: 'exercise',
+    goalField: null,
+    help: 'Minutes of recorded workouts or activity sessions.',
+  },
+] as const
 
-/** Days carrying a figure — averaging over 30 when only four synced would lie. */
-const daysWithData = (metrics: HealthMetric[], metric: string) =>
-  new Set(metrics.filter((m) => m.metric === metric).map((m) => m.metric_date)).size
+const sumOn = (metrics: HealthMetric[], metric: string, date: string) =>
+  metrics
+    .filter((m) => m.metric === metric && m.metric_date === date)
+    .reduce((sum, m) => sum + Number(m.value), 0)
 
 /**
- * Google Health figures for the selected day, each with its 30-day average
- * underneath for context. Owner-only, enforced by RLS.
+ * The Progress stat row: one tile per metric, horizontally scrollable, with the
+ * selected tile driving the trend chart beneath it.
  *
- * State is owned by Progress so one fetch feeds this, the sleep card and the
- * date navigator together.
+ * State lives in Progress so one fetch feeds this, the sleep card and the date
+ * navigator together.
  */
 export function HealthStats({
   connection,
-  dayMetrics,
-  windowMetrics,
+  metrics,
+  profile,
+  date,
   loading,
   busy,
   error,
@@ -43,14 +94,62 @@ export function HealthStats({
   onSync,
 }: {
   connection: HealthConnection | null
-  dayMetrics: HealthMetric[]
-  windowMetrics: HealthMetric[]
+  metrics: HealthMetric[]
+  profile: NutritionProfile | null
+  date: string
   loading: boolean
   busy: boolean
   error: string
   lastResult: SyncResult | null
   onSync: () => void
 }) {
+  const [selected, setSelected] = useState<string>('steps')
+
+  // The window the tiles and chart share: 30 days ending on the selected date.
+  const windowDates = useMemo(
+    () => Array.from({ length: HISTORY_DAYS }, (_, i) => addDays(date, -(HISTORY_DAYS - 1 - i))),
+    [date],
+  )
+
+  const tiles = useMemo<StatTileData[]>(
+    () =>
+      METRICS.map((metric) => {
+        const history = windowDates.map((day) => sumOn(metrics, metric.key, day))
+        const raw = sumOn(metrics, metric.key, date)
+        const goal = metric.goalField ? (profile?.[metric.goalField] ?? null) : null
+
+        return {
+          key: metric.key,
+          label: metric.label,
+          icon: metric.icon,
+          value: raw > 0 ? metric.format(raw) : null,
+          caption:
+            metric.key === 'sleep_minutes'
+              ? `Night of ${date.split('-').reverse().join('/')}`
+              : date.split('-').reverse().join('/'),
+          help: metric.help,
+          // Days with nothing recorded would drag the average to zero and make
+          // every figure look like a personal best.
+          history: history.filter((v) => v > 0),
+          raw,
+          goal,
+          format: metric.format,
+          goalNoun: metric.goalNoun,
+        }
+      }),
+    [metrics, windowDates, date, profile],
+  )
+
+  const active = METRICS.find((m) => m.key === selected) ?? METRICS[0]
+  const trend = useMemo<TrendPoint[]>(
+    () =>
+      windowDates
+        .map((day) => ({ date: day, value: sumOn(metrics, active.key, day) }))
+        .filter((point) => point.value > 0),
+    [metrics, windowDates, active.key],
+  )
+  const activeGoal = active.goalField ? (profile?.[active.goalField] ?? null) : null
+
   if (loading) {
     return (
       <section className="card p-5">
@@ -79,9 +178,7 @@ export function HealthStats({
     )
   }
 
-  const visible = TILES.filter(
-    (tile) => sumFor(dayMetrics, tile.metric) > 0 || daysWithData(windowMetrics, tile.metric) > 0,
-  )
+  const anyData = metrics.length > 0
 
   return (
     <section className="card p-5">
@@ -99,7 +196,6 @@ export function HealthStats({
 
       <Alert tone="error">{error || connection.last_sync_error || ''}</Alert>
 
-      {/* A sync that writes nothing should say why, not just look broken. */}
       {lastResult ? (
         <p className="mt-2 text-xs text-slate-500">
           Last sync wrote {lastResult.written} {lastResult.written === 1 ? 'figure' : 'figures'}
@@ -109,38 +205,42 @@ export function HealthStats({
         </p>
       ) : null}
 
-      {visible.length === 0 ? (
+      {!anyData ? (
         <p className="mt-3 text-sm text-slate-500">
           Nothing synced yet. Press “Sync now” to pull the last 30 days.
         </p>
       ) : (
         <>
-          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {visible.map((tile) => {
-              const value = sumFor(dayMetrics, tile.metric)
-              const days = daysWithData(windowMetrics, tile.metric)
-              const average = days > 0 ? sumFor(windowMetrics, tile.metric) / days : 0
-
-              return (
-                <div key={tile.metric} className="rounded-2xl bg-slate-50 p-4 text-center">
-                  <p className="text-xs font-medium tracking-wide text-slate-500 uppercase">
-                    {tile.label}
-                  </p>
-                  <p className="mt-1 text-2xl font-bold text-slate-900">
-                    {value > 0 ? tile.format(value) : '—'}
-                  </p>
-                  <p className="mt-0.5 text-[11px] text-slate-400">
-                    {days > 0 ? `avg ${tile.format(average)}` : 'no data'}
-                  </p>
-                </div>
-              )
-            })}
+          {/* Negative margin lets the row bleed to the card edge, so a
+              part-visible tile signals there's more to scroll to. */}
+          <div className="scroll-x -mx-5 mt-4 flex snap-x snap-mandatory gap-3 px-5 pb-1">
+            {tiles.map((tile) => (
+              <StatTile
+                key={tile.key}
+                tile={tile}
+                selected={tile.key === selected}
+                onSelect={() => setSelected(tile.key)}
+              />
+            ))}
           </div>
 
-          <p className="mt-3 text-xs text-slate-400">
-            Selected day, with the {daysWithData(windowMetrics, 'steps') || 30}-day average below
-            each. From Google Health, visible only to you.
-          </p>
+          <div className="mt-5 border-t border-slate-100 pt-4">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h3 className="text-sm font-semibold text-slate-900">
+                {active.label} · last {HISTORY_DAYS} days
+              </h3>
+              <p className="text-xs text-slate-400">Tap a tile to change this chart</p>
+            </div>
+
+            <div className="mt-3">
+              <MetricTrendChart
+                data={trend}
+                label={active.label}
+                goal={activeGoal}
+                format={active.format}
+              />
+            </div>
+          </div>
         </>
       )}
     </section>

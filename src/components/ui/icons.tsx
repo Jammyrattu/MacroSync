@@ -37,6 +37,41 @@ export const PlusIcon = (p: IconProps) => (
   </Icon>
 )
 
+export const FootprintsIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M5 15c-.6-2.5-.6-4.6 0-6.4C5.6 6.8 6.6 6 8 6s2.4.8 2.6 2.6c.2 1.8 0 3.9-.6 6.4Z" />
+    <path d="M4.4 15h5.6c.3 1.5.1 2.6-.6 3.2-.7.6-1.6.9-2.6.8-1-.1-1.8-.5-2.2-1.2-.4-.7-.5-1.6-.2-2.8Z" />
+    <path d="M14 19c-.6-2.5-.6-4.6 0-6.4.6-1.8 1.6-2.6 3-2.6s2.4.8 2.6 2.6c.2 1.8 0 3.9-.6 6.4Z" />
+  </Icon>
+)
+
+export const FlameIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M12 3c.5 2.5-1 3.8-2.3 5.2C8.3 9.7 7 11.2 7 13.8A5 5 0 0 0 17 14c0-3.2-1.8-4.8-3-6.5" />
+    <path d="M12 20a2.6 2.6 0 0 1-2.6-2.6c0-1.6 1.4-2.4 2.6-4 1.2 1.6 2.6 2.4 2.6 4A2.6 2.6 0 0 1 12 20Z" />
+  </Icon>
+)
+
+export const MapPinIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M12 21s7-5.5 7-11a7 7 0 1 0-14 0c0 5.5 7 11 7 11Z" />
+    <circle cx="12" cy="10" r="2.6" />
+  </Icon>
+)
+
+export const MoonIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5Z" />
+  </Icon>
+)
+
+export const InfoIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 11v5M12 8h.01" />
+  </Icon>
+)
+
 export const ChartIcon = (p: IconProps) => (
   <Icon {...p}>
     <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />

@@ -36,6 +36,9 @@ export function Settings() {
   const [protein, setProtein] = useState('')
   const [carbs, setCarbs] = useState('')
   const [fat, setFat] = useState('')
+  const [stepGoal, setStepGoal] = useState('')
+  const [activeCalorieGoal, setActiveCalorieGoal] = useState('')
+  const [sleepGoalHours, setSleepGoalHours] = useState('')
 
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -59,6 +62,16 @@ export function Settings() {
       setProtein(nutritionProfile.protein_target ? String(nutritionProfile.protein_target) : '')
       setCarbs(nutritionProfile.carbs_target ? String(nutritionProfile.carbs_target) : '')
       setFat(nutritionProfile.fat_target ? String(nutritionProfile.fat_target) : '')
+      setStepGoal(nutritionProfile.step_goal ? String(nutritionProfile.step_goal) : '')
+      setActiveCalorieGoal(
+        nutritionProfile.active_calorie_goal ? String(nutritionProfile.active_calorie_goal) : '',
+      )
+      // Stored in minutes, entered in hours — nobody thinks "450 minutes".
+      setSleepGoalHours(
+        nutritionProfile.sleep_goal_minutes
+          ? String(Math.round((nutritionProfile.sleep_goal_minutes / 60) * 10) / 10)
+          : '',
+      )
     }
   }, [profile, nutritionProfile])
 
@@ -138,6 +151,11 @@ export function Settings() {
           protein_target: protein ? Number(protein) : null,
           carbs_target: carbs ? Number(carbs) : null,
           fat_target: fat ? Number(fat) : null,
+          // Blank clears the goal, which the tiles show as "not set" — that's a
+          // real state, not a zero.
+          step_goal: stepGoal ? Number(stepGoal) : null,
+          active_calorie_goal: activeCalorieGoal ? Number(activeCalorieGoal) : null,
+          sleep_goal_minutes: sleepGoalHours ? Math.round(Number(sleepGoalHours) * 60) : null,
           updated_at: new Date().toISOString(),
         })
         .eq('user_id', user.id),
@@ -326,6 +344,67 @@ export function Settings() {
               </option>
             ))}
           </select>
+        </div>
+      </section>
+
+      {/* Activity goals */}
+      <section className="card p-5">
+        <h2 className="font-semibold text-slate-900">Daily activity goals</h2>
+        <p className="mt-1 text-sm text-slate-500">
+          Optional. Set one and the Progress tiles show your progress against it instead of the
+          trend. Leave blank for no goal.
+        </p>
+
+        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <div>
+            <label className="label" htmlFor="set-step-goal">
+              Steps
+            </label>
+            <input
+              id="set-step-goal"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              value={stepGoal}
+              onChange={(e) => setStepGoal(e.target.value)}
+              className="input"
+              placeholder="10000"
+            />
+          </div>
+
+          <div>
+            <label className="label" htmlFor="set-active-goal">
+              Active kcal
+            </label>
+            <input
+              id="set-active-goal"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              value={activeCalorieGoal}
+              onChange={(e) => setActiveCalorieGoal(e.target.value)}
+              className="input"
+              placeholder="500"
+            />
+          </div>
+
+          <div>
+            <label className="label" htmlFor="set-sleep-goal">
+              Sleep (hours)
+            </label>
+            <input
+              id="set-sleep-goal"
+              type="number"
+              inputMode="decimal"
+              step="0.5"
+              min={0.5}
+              max={24}
+              value={sleepGoalHours}
+              onChange={(e) => setSleepGoalHours(e.target.value)}
+              className="input"
+              placeholder="8"
+            />
+          </div>
         </div>
       </section>
 

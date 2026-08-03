@@ -129,8 +129,9 @@ export function Progress() {
 
       <HealthStats
         connection={health.connection}
-        dayMetrics={dayMetrics}
-        windowMetrics={windowMetrics}
+        metrics={windowMetrics}
+        profile={nutritionProfile}
+        date={date}
         loading={health.loading}
         busy={health.busy}
         error={health.error}
