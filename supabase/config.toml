@@ -8,3 +8,13 @@ project_id = "macrosync"
 # automatically, so only authenticated users can spend our Open Food Facts
 # rate limit.
 verify_jwt = true
+
+[functions.gif-search]
+# Same reasoning as above — the GIPHY key is metered, so the proxy stays behind
+# auth rather than being an open endpoint anyone can point at our quota.
+verify_jwt = true
+
+[functions.admin-delete-user]
+# The function re-checks the caller's admin role against user_roles itself, but
+# verification here means an unauthenticated request never reaches that code.
+verify_jwt = true
