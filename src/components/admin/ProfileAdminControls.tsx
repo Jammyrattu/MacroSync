@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
@@ -29,6 +29,27 @@ export function ProfileAdminControls({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
+  const [email, setEmail] = useState<string | null>(null)
+
+  /**
+   * Emails live in auth.users, which the client cannot read. admin_user_email
+   * is SECURITY DEFINER and returns null to anyone who isn't an admin, so the
+   * check that matters happens in the database, not here.
+   */
+  useEffect(() => {
+    if (!isAdmin || targetId === user?.id) return
+
+    let active = true
+    void supabase
+      .rpc('admin_user_email', { target: targetId })
+      .then(({ data }) => {
+        if (active) setEmail((data as string | null) ?? null)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [isAdmin, targetId, user?.id])
 
   // Never offer an admin the tools on their own profile — self-demotion and
   // self-deletion are both ways to lose control of the project.
@@ -88,6 +109,13 @@ export function ProfileAdminControls({
   return (
     <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50/60 p-4">
       <p className="text-xs font-semibold tracking-wide text-amber-800 uppercase">Admin actions</p>
+
+      <dl className="mt-2 flex flex-wrap items-baseline gap-x-2 text-sm">
+        <dt className="text-amber-800">Email:</dt>
+        <dd className="min-w-0 font-medium break-all text-amber-950">
+          {email ?? <span className="text-amber-700/70">loading…</span>}
+        </dd>
+      </dl>
 
       {notice ? (
         <div className="mt-2">
