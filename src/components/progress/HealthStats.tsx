@@ -52,7 +52,7 @@ function total(metrics: HealthMetric[], metric: HealthMetricName): number {
 
 /** Google Health figures on the Progress page. Owner-only, enforced by RLS. */
 export function HealthStats() {
-  const { connection, metrics, loading, busy, error, sync } = useHealthSync(30)
+  const { connection, metrics, loading, busy, error, lastResult, sync } = useHealthSync(30)
 
   if (loading) {
     return (
@@ -99,6 +99,16 @@ export function HealthStats() {
       </div>
 
       <Alert tone="error">{error || connection.last_sync_error || ''}</Alert>
+
+      {/* A sync that writes nothing should say why, not just look broken. */}
+      {lastResult ? (
+        <p className="mt-2 text-xs text-slate-500">
+          Last sync wrote {lastResult.written} {lastResult.written === 1 ? 'figure' : 'figures'}
+          {lastResult.skipped.length > 0
+            ? `. Google returned nothing for: ${lastResult.skipped.join(', ')}.`
+            : '.'}
+        </p>
+      ) : null}
 
       {!hasData ? (
         <p className="mt-3 text-sm text-slate-500">

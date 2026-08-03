@@ -3,12 +3,20 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import type { HealthConnection, HealthMetric } from '@/types/db'
 
+/** What the last sync did, so a zero-row result can explain itself. */
+export interface SyncResult {
+  written: number
+  /** Data types Google returned an error for — usually "no such data". */
+  skipped: string[]
+}
+
 export interface HealthSyncState {
   connection: HealthConnection | null
   metrics: HealthMetric[]
   loading: boolean
   busy: boolean
   error: string
+  lastResult: SyncResult | null
   /** True when the project has no Google OAuth credentials configured yet. */
   needsConfig: boolean
   connect: (returnTo?: string) => Promise<void>
@@ -30,6 +38,7 @@ export function useHealthSync(days = 30): HealthSyncState {
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [lastResult, setLastResult] = useState<SyncResult | null>(null)
   const [needsConfig, setNeedsConfig] = useState(false)
 
   const refresh = useCallback(async () => {
@@ -93,11 +102,16 @@ export function useHealthSync(days = 30): HealthSyncState {
     const { data, error: fnError } = await supabase.functions.invoke('health-sync', {
       body: { days },
     })
-    const payload = data as { error?: string; needsConfig?: boolean } | null
+    const payload = data as
+      | { error?: string; needsConfig?: boolean; written?: number; skipped?: string[] }
+      | null
 
     if (payload?.needsConfig) setNeedsConfig(true)
     if (payload?.error || fnError) {
       setError(payload?.error ?? fnError?.message ?? 'Sync failed.')
+      setLastResult(null)
+    } else {
+      setLastResult({ written: payload?.written ?? 0, skipped: payload?.skipped ?? [] })
     }
 
     await refresh()
@@ -130,6 +144,7 @@ export function useHealthSync(days = 30): HealthSyncState {
     loading,
     busy,
     error,
+    lastResult,
     needsConfig,
     connect,
     sync,
