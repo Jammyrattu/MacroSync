@@ -11,6 +11,7 @@ import {
 import type { ActivityLevel, Goal, Sex } from '@/types/db'
 import { Logo } from '@/components/ui/Logo'
 import { Alert } from '@/components/ui/Alert'
+import { HealthSyncCard } from '@/components/health/HealthSyncCard'
 
 /**
  * Calorie-target wizard. Collects the six inputs the calculation needs, previews
@@ -22,7 +23,17 @@ import { Alert } from '@/components/ui/Alert'
  * one number doesn't mean retyping the other five.
  */
 
-const STEPS = ['About you', 'Measurements', 'Activity', 'Goal', 'Your targets'] as const
+const STEPS = [
+  'About you',
+  'Measurements',
+  'Activity',
+  'Goal',
+  'Your targets',
+  'Health sync',
+] as const
+
+/** Index of the optional last step, which runs after the profile is saved. */
+const HEALTH_STEP = STEPS.length - 1
 
 /** Empty string rather than "null" so the value can seed a text input. */
 const asInput = (value: number | null | undefined) => (value == null ? '' : String(value))
@@ -67,6 +78,7 @@ export function Onboarding() {
     Boolean(activity),
     Boolean(goal),
     Boolean(targets),
+    true, // health sync is optional by design
   ][step]
 
   async function handleFinish() {
@@ -112,7 +124,16 @@ export function Onboarding() {
     )
 
     await refreshProfile()
-    navigate(redoing ? '/settings' : '/', { replace: true })
+    setSaving(false)
+
+    // A redo has nothing left to offer; a first run continues to the optional
+    // health-sync step, which is only safe now the profile is already stored —
+    // connecting navigates away to Google.
+    if (redoing) {
+      navigate('/settings', { replace: true })
+      return
+    }
+    setStep(STEPS.length - 1)
   }
 
   return (
@@ -280,9 +301,19 @@ export function Onboarding() {
             </div>
           )}
 
+          {step === HEALTH_STEP && (
+            <div className="space-y-5">
+              <Header
+                title="Sync Google Health?"
+                detail="Optional. Bring your steps, active calories and sleep into your Progress page — only you can see it."
+              />
+              <HealthSyncCard compact returnTo="/" />
+            </div>
+          )}
+
           {/* Navigation */}
           <div className="mt-6 flex gap-3">
-            {step > 0 && (
+            {step > 0 && step !== HEALTH_STEP && (
               <button
                 type="button"
                 onClick={() => setStep((s) => s - 1)}
@@ -291,7 +322,17 @@ export function Onboarding() {
                 Back
               </button>
             )}
-            {step < STEPS.length - 1 ? (
+            {step === HEALTH_STEP ? (
+              // The profile is already saved by this point, so skipping is just
+              // navigation — nothing is lost by declining.
+              <button
+                type="button"
+                onClick={() => navigate('/', { replace: true })}
+                className="btn-secondary flex-1"
+              >
+                Skip for now
+              </button>
+            ) : step < STEPS.length - 2 ? (
               <button
                 type="button"
                 disabled={!stepValid}

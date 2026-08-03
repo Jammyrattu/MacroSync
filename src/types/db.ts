@@ -179,6 +179,38 @@ export interface UserRoleRow {
   created_at: string
 }
 
+/**
+ * Google Health connection status.
+ *
+ * Deliberately carries no tokens: those live in health_tokens, which has RLS
+ * enabled and no policies, so the client cannot read them at all.
+ */
+export interface HealthConnection {
+  user_id: string
+  provider: 'google_health'
+  scopes: string[]
+  connected_at: string
+  last_synced_at: string | null
+  last_sync_error: string | null
+}
+
+export type HealthMetricName =
+  | 'steps'
+  | 'active_calories'
+  | 'distance_m'
+  | 'sleep_minutes'
+  | 'exercise_minutes'
+
+export interface HealthMetric {
+  id: string
+  user_id: string
+  metric_date: string
+  metric: HealthMetricName
+  value: number
+  source: string
+  updated_at: string
+}
+
 /** An exercise as stored in the database — admins can edit these. */
 export interface ExerciseRow {
   id: string

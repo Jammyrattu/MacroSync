@@ -13,6 +13,7 @@ import type { ActivityLevel, Goal, Sex } from '@/types/db'
 import { Avatar } from '@/components/ui/Avatar'
 import { Alert } from '@/components/ui/Alert'
 import { LogoutIcon } from '@/components/ui/icons'
+import { HealthSyncCard } from '@/components/health/HealthSyncCard'
 
 /**
  * Profile, body stats and macro targets.
@@ -325,6 +326,14 @@ export function Settings() {
               </option>
             ))}
           </select>
+        </div>
+      </section>
+
+      {/* Google Health */}
+      <section className="card p-5">
+        <h2 className="font-semibold text-slate-900">Google Health</h2>
+        <div className="mt-3">
+          <HealthSyncCard returnTo="/settings" />
         </div>
       </section>
 

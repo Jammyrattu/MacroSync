@@ -18,3 +18,19 @@ verify_jwt = true
 # The function re-checks the caller's admin role against user_roles itself, but
 # verification here means an unauthenticated request never reaches that code.
 verify_jwt = true
+
+[functions.health-oauth-start]
+verify_jwt = true
+
+[functions.health-sync]
+verify_jwt = true
+
+[functions.health-disconnect]
+verify_jwt = true
+
+[functions.health-oauth-callback]
+# The ONE exception. Google redirects the user's browser here straight from the
+# consent screen with no session attached, so a JWT can never be present.
+# Authorisation rests on the single-use `state` row written by
+# health-oauth-start, which is consumed before the code is exchanged.
+verify_jwt = false

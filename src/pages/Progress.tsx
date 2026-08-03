@@ -6,6 +6,7 @@ import { todayKey } from '@/lib/dates'
 import type { WeightLog } from '@/types/db'
 import { WeightChart } from '@/components/progress/WeightChart'
 import { CalorieHistoryChart } from '@/components/progress/CalorieHistoryChart'
+import { HealthStats } from '@/components/progress/HealthStats'
 import { Alert } from '@/components/ui/Alert'
 import { Spinner } from '@/components/ui/Spinner'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -83,6 +84,8 @@ export function Progress() {
   return (
     <div className="space-y-4">
       <h1 className="text-xl font-bold tracking-tight text-slate-900">Progress</h1>
+
+      <HealthStats />
 
       {/* Weight */}
       <section className="card p-5">
