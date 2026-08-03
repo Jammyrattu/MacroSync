@@ -6,8 +6,23 @@
  * design, but acts only on the caller's own row: the user id comes from the
  * verified JWT, never from the request body.
  *
- * Access tokens last an hour, so this refreshes with the stored refresh token
- * whenever the current one is within a minute of expiring.
+ * ---------------------------------------------------------------------------
+ * Two very different shapes of data, so two very different requests.
+ *
+ * Steps, distance and active energy are recorded PER MINUTE. Thirty days is
+ * ~43,000 points, and `list` returns them a page at a time — the first version
+ * of this function read one page and so recorded a single day. Those metrics
+ * now use `dataPoints:dailyRollUp`, which returns one total per day in a single
+ * request.
+ *
+ * Sleep and exercise are session-shaped (a handful per day) and have no rollup,
+ * so they use `list` with an explicit page walk — both cap pageSize at 25.
+ *
+ * Data type ids in the URL are kebab-case (`active-energy-burned`); filter
+ * fields are snake_case, and only some are accepted per type — sleep filters on
+ * `end_time`, steps on `start_time`. These were verified against the live API
+ * rather than inferred, because the failures are silent 400s.
+ * ---------------------------------------------------------------------------
  *
  * Deploy with: supabase functions deploy health-sync
  */
@@ -28,152 +43,45 @@ const json = (body: unknown, status = 200) =>
 
 const HEALTH_API = 'https://health.googleapis.com/v4/users/me/dataTypes'
 
-/**
- * Google Health data type -> our metric name, with how to read a value out of
- * a data point.
- *
- * Kept as a table because the exact field names per data type are the part
- * most likely to need adjusting against real data; a wrong entry here should
- * skip that metric, not fail the whole sync.
- */
-interface Mapping {
-  dataType: string
-  metric: string
-  /** Pull the numeric value out of one data point, or null to skip it. */
-  read: (point: Record<string, unknown>) => number | null
-  /** Sum values within a day, or take the last one. */
-  aggregate: 'sum' | 'last'
-}
-
-const num = (v: unknown): number | null => {
+const num = (v: unknown): number => {
   const n = typeof v === 'string' ? Number(v) : typeof v === 'number' ? v : NaN
-  return Number.isFinite(n) ? n : null
+  return Number.isFinite(n) ? n : 0
 }
 
-/** Data points nest their payload under a key named after the data type. */
-const payload = (point: Record<string, unknown>, key: string) =>
-  (point[key] ?? {}) as Record<string, unknown>
+/** `active-energy-burned` -> `activeEnergyBurned`, the payload key. */
+const camel = (kebab: string) => kebab.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase())
 
-const MAPPINGS: Mapping[] = [
-  {
-    dataType: 'steps',
-    metric: 'steps',
-    aggregate: 'sum',
-    read: (p) => num(payload(p, 'steps').count),
-  },
-  {
-    dataType: 'active_calories_burned',
-    metric: 'active_calories',
-    aggregate: 'sum',
-    read: (p) => num((payload(p, 'activeCaloriesBurned').energy as Record<string, unknown>)?.kcal),
-  },
-  {
-    dataType: 'distance',
-    metric: 'distance_m',
-    aggregate: 'sum',
-    read: (p) => num((payload(p, 'distance').distance as Record<string, unknown>)?.meters),
-  },
-  // Sleep is handled separately by readSleepStages — a single data point
-  // expands into up to five metrics, which the one-value-per-point shape here
-  // can't express.
-  {
-    dataType: 'exercise',
-    metric: 'exercise_minutes',
-    aggregate: 'sum',
-    read: (p) => {
-      const interval = payload(p, 'exercise').interval as Record<string, string> | undefined
-      if (!interval?.startTime || !interval?.endTime) return null
-      const ms = Date.parse(interval.endTime) - Date.parse(interval.startTime)
-      return Number.isFinite(ms) && ms > 0 ? Math.round(ms / 60000) : null
-    },
-  },
-]
+/** YYYY-MM-DD from the API's {year, month, day}. */
+const civilToKey = (d?: { year?: number; month?: number; day?: number }) =>
+  d?.year && d?.month && d?.day
+    ? `${d.year}-${String(d.month).padStart(2, '0')}-${String(d.day).padStart(2, '0')}`
+    : null
 
-/**
- * Sleep stages.
- *
- * EXPECTED UPSTREAM SHAPE — one dataPoint per sleep session:
- *
- *   {
- *     "sleep": {
- *       "interval": { "startTime": "2026-08-02T23:10:00Z", "endTime": "2026-08-03T07:05:00Z" },
- *       "stages": [
- *         { "stage": "DEEP",  "interval": { "startTime": "...", "endTime": "..." } },
- *         { "stage": "LIGHT", "interval": { "startTime": "...", "endTime": "..." } },
- *         { "stage": "REM",   "interval": { "startTime": "...", "endTime": "..." } },
- *         { "stage": "AWAKE", "interval": { "startTime": "...", "endTime": "..." } }
- *       ]
- *     }
- *   }
- *
- * Stage names are matched loosely (DEEP / SLOW_WAVE, LIGHT / CORE, REM,
- * AWAKE / WAKE), so a provider using its own vocabulary still lands in the
- * right bucket. If `stages` is missing entirely we fall back to the session
- * interval and record total sleep only — a breakdown is a bonus, not a
- * requirement.
- *
- * WHAT WE STORE, per day:
- *   sleep_minutes        deep + light + rem   (time asleep; excludes awake)
- *   sleep_deep_minutes / sleep_light_minutes / sleep_rem_minutes
- *   sleep_awake_minutes  awake in bed         (NOT part of sleep_minutes)
- */
+const toCivil = (key: string) => {
+  const [year, month, day] = key.split('-').map(Number)
+  return { date: { year, month, day } }
+}
+
+/** Per-day totals, from the rollup endpoint. */
+const ROLLUPS = [
+  { dataType: 'steps', metric: 'steps', scale: 1 },
+  // Reported in millimetres; we store metres.
+  { dataType: 'distance', metric: 'distance_m', scale: 1 / 1000 },
+  { dataType: 'active-energy-burned', metric: 'active_calories', scale: 1 },
+] as const
+
+/** Minutes between two RFC-3339 stamps. */
+function minutesBetween(startTime?: string, endTime?: string): number {
+  if (!startTime || !endTime) return 0
+  const ms = Date.parse(endTime) - Date.parse(startTime)
+  return Number.isFinite(ms) && ms > 0 ? Math.round(ms / 60000) : 0
+}
+
 const STAGE_METRIC: Record<string, string> = {
   DEEP: 'sleep_deep_minutes',
-  SLOW_WAVE: 'sleep_deep_minutes',
   LIGHT: 'sleep_light_minutes',
-  CORE: 'sleep_light_minutes',
   REM: 'sleep_rem_minutes',
   AWAKE: 'sleep_awake_minutes',
-  WAKE: 'sleep_awake_minutes',
-}
-
-const minutesBetween = (interval?: Record<string, string>): number | null => {
-  if (!interval?.startTime || !interval?.endTime) return null
-  const ms = Date.parse(interval.endTime) - Date.parse(interval.startTime)
-  return Number.isFinite(ms) && ms > 0 ? Math.round(ms / 60000) : null
-}
-
-/** Metric -> minutes for one sleep session. */
-function readSleepStages(point: Record<string, unknown>): Record<string, number> {
-  const sleep = payload(point, 'sleep')
-  const stages = sleep.stages as { stage?: string; interval?: Record<string, string> }[] | undefined
-  const out: Record<string, number> = {}
-
-  if (Array.isArray(stages) && stages.length > 0) {
-    for (const stage of stages) {
-      const metric = STAGE_METRIC[(stage.stage ?? '').toUpperCase()]
-      const mins = minutesBetween(stage.interval)
-      if (!metric || mins === null) continue
-      out[metric] = (out[metric] ?? 0) + mins
-    }
-
-    const asleep =
-      (out.sleep_deep_minutes ?? 0) +
-      (out.sleep_light_minutes ?? 0) +
-      (out.sleep_rem_minutes ?? 0)
-
-    if (asleep > 0) {
-      out.sleep_minutes = asleep
-      return out
-    }
-  }
-
-  // No usable stages — record the session length as total sleep.
-  const total = minutesBetween(sleep.interval as Record<string, string> | undefined)
-  return total === null ? {} : { sleep_minutes: total }
-}
-
-/** The day a point belongs to, from whichever time field it carries. */
-function pointDate(point: Record<string, unknown>, key: string): string | null {
-  const body = payload(point, key)
-  const interval = body.interval as Record<string, string> | undefined
-  const stamp =
-    interval?.startTime ??
-    (body.time as string | undefined) ??
-    (point.startTime as string | undefined)
-  if (!stamp) return null
-  const d = new Date(stamp)
-  return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10)
 }
 
 /** Returns a usable access token, refreshing first if it's about to expire. */
@@ -229,6 +137,38 @@ async function freshAccessToken(
   return { token: body.access_token }
 }
 
+/** Walks `list` pages until exhausted or `maxPages` is reached. */
+async function listAll(
+  url: string,
+  token: string,
+  maxPages = 8,
+): Promise<{ points: Record<string, unknown>[]; ok: boolean; detail?: string }> {
+  const points: Record<string, unknown>[] = []
+  let pageToken: string | undefined
+
+  for (let page = 0; page < maxPages; page++) {
+    const paged = pageToken ? `${url}&pageToken=${encodeURIComponent(pageToken)}` : url
+    const res = await fetch(paged, {
+      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+    })
+
+    if (!res.ok) {
+      return { points, ok: false, detail: (await res.text()).slice(0, 200) }
+    }
+
+    const body = (await res.json()) as {
+      dataPoints?: Record<string, unknown>[]
+      nextPageToken?: string
+    }
+    points.push(...(body.dataPoints ?? []))
+
+    if (!body.nextPageToken) break
+    pageToken = body.nextPageToken
+  }
+
+  return { points, ok: true }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS })
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
@@ -265,76 +205,129 @@ Deno.serve(async (req) => {
     // Default window is fine.
   }
 
-  const since = new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 19)
+  const startKey = new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10)
+  const endKey = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10)
+  const sinceIso = `${startKey}T00:00:00Z`
 
-  // date -> metric -> running value
+  // date -> metric -> value
   const totals = new Map<string, Map<string, number>>()
   const skipped: string[] = []
+  const diagnostics: Record<string, string> = {}
 
-  for (const mapping of MAPPINGS) {
-    const endpoint =
-      `${HEALTH_API}/${mapping.dataType}/dataPoints` +
-      `?filter=${encodeURIComponent(`${mapping.dataType}.interval.civil_start_time >= "${since}"`)}`
+  const add = (day: string, metric: string, value: number) => {
+    if (!day || !Number.isFinite(value) || value <= 0) return
+    const forDay = totals.get(day) ?? new Map<string, number>()
+    forDay.set(metric, (forDay.get(metric) ?? 0) + value)
+    totals.set(day, forDay)
+  }
 
-    const res = await fetch(endpoint, {
-      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+  // --- Per-day totals: one request each, no paging ---------------------------
+  for (const rollup of ROLLUPS) {
+    const res = await fetch(`${HEALTH_API}/${rollup.dataType}/dataPoints:dailyRollUp`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify({ range: { start: toCivil(startKey), end: toCivil(endKey) } }),
     })
 
-    // A data type the account has nothing for, or hasn't granted, shouldn't
-    // sink the whole sync — note it and carry on.
     if (!res.ok) {
-      skipped.push(mapping.dataType)
+      skipped.push(rollup.dataType)
+      diagnostics[rollup.dataType] = (await res.text()).slice(0, 160)
       continue
     }
 
-    const body = (await res.json()) as { dataPoints?: Record<string, unknown>[] }
+    const body = (await res.json()) as {
+      rollupDataPoints?: Record<string, unknown>[]
+    }
 
-    for (const point of body.dataPoints ?? []) {
-      const day = pointDate(point, camel(mapping.dataType))
-      const value = mapping.read(point)
-      if (!day || value === null) continue
-
-      const forDay = totals.get(day) ?? new Map<string, number>()
-      const current = forDay.get(mapping.metric)
-      forDay.set(
-        mapping.metric,
-        mapping.aggregate === 'sum' ? (current ?? 0) + value : value,
+    for (const point of body.rollupDataPoints ?? []) {
+      const day = civilToKey(
+        (point.civilStartTime as { date?: { year: number; month: number; day: number } })?.date,
       )
-      totals.set(day, forDay)
+      const payload = point[camel(rollup.dataType)] as Record<string, unknown> | undefined
+      if (!day || !payload) continue
+
+      // Field names differ per type (countSum, kcalSum, millimetersSum), so
+      // take whichever aggregate the response actually carries.
+      const sumKey = Object.keys(payload).find((k) => k.endsWith('Sum'))
+      if (!sumKey) continue
+
+      add(day, rollup.metric, num(payload[sumKey]) * rollup.scale)
     }
   }
 
-  // Sleep, separately: one session expands into several metrics.
+  // --- Sleep: session-shaped, and summary beats recomputing from stages ------
   {
-    const endpoint =
-      `${HEALTH_API}/sleep/dataPoints` +
-      `?filter=${encodeURIComponent(`sleep.interval.civil_start_time >= "${since}"`)}`
+    const filter = encodeURIComponent(`sleep.interval.end_time >= "${sinceIso}"`)
+    const { points, ok, detail } = await listAll(
+      `${HEALTH_API}/sleep/dataPoints?pageSize=25&filter=${filter}`,
+      token,
+    )
 
-    const res = await fetch(endpoint, {
-      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
-    })
-
-    if (!res.ok) {
+    if (!ok) {
       skipped.push('sleep')
-    } else {
-      const body = (await res.json()) as { dataPoints?: Record<string, unknown>[] }
+      if (detail) diagnostics.sleep = detail
+    }
 
-      for (const point of body.dataPoints ?? []) {
-        // A night that starts at 23:10 belongs to the morning it ends on —
-        // that's the day people mean when they say "last night's sleep".
-        const interval = payload(point, 'sleep').interval as Record<string, string> | undefined
-        const stamp = interval?.endTime ?? interval?.startTime
-        if (!stamp) continue
-        const day = new Date(stamp)
-        if (Number.isNaN(day.getTime())) continue
-        const key = day.toISOString().slice(0, 10)
+    for (const point of points) {
+      const sleep = point.sleep as
+        | {
+            interval?: { startTime?: string; endTime?: string }
+            metadata?: { mainSleep?: boolean }
+            summary?: {
+              minutesAsleep?: string
+              minutesAwake?: string
+              stagesSummary?: { type?: string; minutes?: string }[]
+            }
+          }
+        | undefined
 
-        const forDay = totals.get(key) ?? new Map<string, number>()
-        for (const [metric, minutes] of Object.entries(readSleepStages(point))) {
-          forDay.set(metric, (forDay.get(metric) ?? 0) + minutes)
+      // A night is filed under the morning it ends on — that's the day people
+      // mean by "last night's sleep".
+      const day = sleep?.interval?.endTime?.slice(0, 10)
+      if (!day || !sleep) continue
+
+      const summary = sleep.summary
+      if (summary?.minutesAsleep) {
+        add(day, 'sleep_minutes', num(summary.minutesAsleep))
+        add(day, 'sleep_awake_minutes', num(summary.minutesAwake))
+
+        for (const stage of summary.stagesSummary ?? []) {
+          const metric = STAGE_METRIC[(stage.type ?? '').toUpperCase()]
+          // AWAKE already came from minutesAwake; adding it again would double it.
+          if (!metric || metric === 'sleep_awake_minutes') continue
+          add(day, metric, num(stage.minutes))
         }
-        totals.set(key, forDay)
+      } else {
+        // No summary (a "classic" sleep record) — fall back to the interval.
+        add(day, 'sleep_minutes', minutesBetween(sleep.interval?.startTime, sleep.interval?.endTime))
       }
+    }
+  }
+
+  // --- Exercise: sessions, filtered on civil start time ----------------------
+  {
+    const filter = encodeURIComponent(`exercise.interval.civil_start_time >= "${startKey}T00:00:00"`)
+    const { points, ok, detail } = await listAll(
+      `${HEALTH_API}/exercise/dataPoints?pageSize=25&filter=${filter}`,
+      token,
+    )
+
+    if (!ok) {
+      skipped.push('exercise')
+      if (detail) diagnostics.exercise = detail
+    }
+
+    for (const point of points) {
+      const exercise = point.exercise as
+        | { interval?: { startTime?: string; endTime?: string } }
+        | undefined
+      const day = exercise?.interval?.startTime?.slice(0, 10)
+      if (!day) continue
+      add(day, 'exercise_minutes', minutesBetween(exercise?.interval?.startTime, exercise?.interval?.endTime))
     }
   }
 
@@ -368,10 +361,5 @@ Deno.serve(async (req) => {
     .update({ last_synced_at: new Date().toISOString(), last_sync_error: null })
     .eq('user_id', userId)
 
-  return json({ ok: true, written: rows.length, days, skipped })
+  return json({ ok: true, written: rows.length, days, skipped, diagnostics })
 })
-
-/** active_calories_burned -> activeCaloriesBurned, matching the JSON payload key. */
-function camel(snake: string): string {
-  return snake.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase())
-}
