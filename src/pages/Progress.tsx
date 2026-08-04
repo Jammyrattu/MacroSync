@@ -135,6 +135,7 @@ export function Progress() {
         loading={health.loading}
         busy={health.busy}
         error={health.error}
+        autoSyncFailed={health.autoSyncFailed}
         lastResult={health.lastResult}
         onSync={() => void health.sync()}
       />

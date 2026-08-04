@@ -12,6 +12,33 @@ import { AUTO_SYNC_CHECK_MS, shouldAutoSync } from '@/lib/healthSyncSchedule'
 let autoSyncInFlight = false
 let lastAutoAttemptAt = 0
 
+/**
+ * The real reason a function call failed.
+ *
+ * supabase-js reports any non-2xx as "Edge Function returned a non-2xx status
+ * code" and leaves `data` null, which tells the user nothing and tells us less.
+ * The Response is on the error's `context`, so read the body off it.
+ */
+async function describeFunctionError(
+  fnError: unknown,
+  payload: { error?: string } | null,
+): Promise<string> {
+  if (payload?.error) return payload.error
+
+  const context = (fnError as { context?: unknown })?.context
+  if (context instanceof Response) {
+    try {
+      const body = (await context.clone().json()) as { error?: string; message?: string }
+      if (body?.error) return body.error
+      if (body?.message) return body.message
+    } catch {
+      // Not JSON, or already consumed — fall through to the generic message.
+    }
+  }
+
+  return (fnError as Error | null)?.message ?? 'Sync failed.'
+}
+
 /** What the last sync did, so a zero-row result can explain itself. */
 export interface SyncResult {
   written: number
@@ -25,11 +52,13 @@ export interface HealthSyncState {
   loading: boolean
   busy: boolean
   error: string
+  /** An automatic retry didn't land. Not an error — the figures are just older. */
+  autoSyncFailed: boolean
   lastResult: SyncResult | null
   /** True when the project has no Google OAuth credentials configured yet. */
   needsConfig: boolean
   connect: (returnTo?: string) => Promise<void>
-  sync: () => Promise<void>
+  sync: (opts?: { auto?: boolean }) => Promise<void>
   disconnect: (deleteData: boolean) => Promise<void>
   refresh: () => Promise<void>
 }
@@ -51,6 +80,7 @@ export function useHealthSync(days = 30, autoSync = true): HealthSyncState {
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [autoSyncFailed, setAutoSyncFailed] = useState(false)
   const [lastResult, setLastResult] = useState<SyncResult | null>(null)
   const [needsConfig, setNeedsConfig] = useState(false)
 
@@ -108,28 +138,39 @@ export function useHealthSync(days = 30, autoSync = true): HealthSyncState {
     window.location.href = payload.url
   }, [])
 
-  const sync = useCallback(async () => {
-    setBusy(true)
-    setError('')
+  const sync = useCallback(
+    async (opts?: { auto?: boolean }) => {
+      setBusy(true)
+      if (!opts?.auto) setError('')
+      setAutoSyncFailed(false)
 
-    const { data, error: fnError } = await supabase.functions.invoke('health-sync', {
-      body: { days },
-    })
-    const payload = data as
-      | { error?: string; needsConfig?: boolean; written?: number; skipped?: string[] }
-      | null
+      const { data, error: fnError } = await supabase.functions.invoke('health-sync', {
+        body: { days },
+      })
+      const payload = data as
+        | { error?: string; needsConfig?: boolean; written?: number; skipped?: string[] }
+        | null
 
-    if (payload?.needsConfig) setNeedsConfig(true)
-    if (payload?.error || fnError) {
-      setError(payload?.error ?? fnError?.message ?? 'Sync failed.')
-      setLastResult(null)
-    } else {
-      setLastResult({ written: payload?.written ?? 0, skipped: payload?.skipped ?? [] })
-    }
+      if (payload?.needsConfig) setNeedsConfig(true)
 
-    await refresh()
-    setBusy(false)
-  }, [days, refresh])
+      if (payload?.error || fnError) {
+        const reason = await describeFunctionError(fnError, payload)
+        setLastResult(null)
+
+        // A background retry that didn't land isn't a breakage: the figures on
+        // screen are still whatever last synced successfully, and it will try
+        // again. Only a sync someone actually asked for gets an error banner.
+        if (opts?.auto) setAutoSyncFailed(true)
+        else setError(reason)
+      } else {
+        setLastResult({ written: payload?.written ?? 0, skipped: payload?.skipped ?? [] })
+      }
+
+      await refresh()
+      setBusy(false)
+    },
+    [days, refresh],
+  )
 
   /**
    * Keep the figures fresh without being asked.
@@ -155,7 +196,7 @@ export function useHealthSync(days = 30, autoSync = true): HealthSyncState {
 
       lastAutoAttemptAt = now
       autoSyncInFlight = true
-      void sync().finally(() => {
+      void sync({ auto: true }).finally(() => {
         autoSyncInFlight = false
       })
     }
@@ -196,6 +237,7 @@ export function useHealthSync(days = 30, autoSync = true): HealthSyncState {
     loading,
     busy,
     error,
+    autoSyncFailed,
     lastResult,
     needsConfig,
     connect,

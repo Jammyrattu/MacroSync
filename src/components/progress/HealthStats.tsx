@@ -90,6 +90,7 @@ export function HealthStats({
   loading,
   busy,
   error,
+  autoSyncFailed,
   lastResult,
   onSync,
 }: {
@@ -100,6 +101,7 @@ export function HealthStats({
   loading: boolean
   busy: boolean
   error: string
+  autoSyncFailed: boolean
   lastResult: SyncResult | null
   onSync: () => void
 }) {
@@ -210,6 +212,16 @@ export function HealthStats({
       </div>
 
       <Alert tone="error">{error || connection.last_sync_error || ''}</Alert>
+
+      {/* A background retry that didn't land is worth mentioning, not alarming
+          about — the figures below are simply as of the last good sync. */}
+      {autoSyncFailed && !error ? (
+        <p className="mt-2 text-xs text-slate-500">
+          The last automatic sync didn’t complete. These figures are from{' '}
+          {lastSyncedAt ? formatRelativeTime(lastSyncedAt) : 'the last successful sync'} — press
+          “Sync now” to try again.
+        </p>
+      ) : null}
 
       {lastResult ? (
         <p className="mt-2 text-xs text-slate-500">
