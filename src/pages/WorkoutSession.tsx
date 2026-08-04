@@ -3,6 +3,8 @@ import { useNavigate, useParams } from 'react-router'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { IDLE_TIMEOUT_MS, estimateWorkoutCalories, type WorkVolume } from '@/lib/calories'
+import { buildLastWeights } from '@/lib/lastWeights'
+import { formatRelativeTime } from '@/lib/dates'
 import type { CompletedSet, RoutineExercise, Workout } from '@/types/db'
 import type { MuscleGroup } from '@/data/exercises'
 import { Spinner } from '@/components/ui/Spinner'
@@ -46,6 +48,8 @@ export function WorkoutSession() {
   })
   const [confirmQuit, setConfirmQuit] = useState(false)
   const [detail, setDetail] = useState<RoutineExercise | null>(null)
+  /** performed_at of the session the weights came from, or null if none. */
+  const [carriedOverFrom, setCarriedOverFrom] = useState<string | null>(null)
 
   /**
    * Session clock. Refs rather than state on purpose: these advance every
@@ -61,43 +65,66 @@ export function WorkoutSession() {
     [],
   )
 
-  // Load the routine and seed one SetState per prescribed set.
+  // Load the routine, and the last time it was completed, then seed one
+  // SetState per prescribed set with the weights carried over.
   useEffect(() => {
-    if (!workoutId) return
+    if (!workoutId || !user) return
 
-    supabase
-      .from('workouts')
-      .select('*')
-      .eq('id', workoutId)
-      .maybeSingle()
-      .then(({ data, error: loadError }) => {
-        if (loadError) setError(loadError.message)
+    let active = true
 
-        const found = data as Workout | null
-        setWorkout(found)
+    void Promise.all([
+      supabase.from('workouts').select('*').eq('id', workoutId).maybeSingle(),
+      supabase
+        .from('workout_logs')
+        .select('completed_sets, performed_at')
+        .eq('user_id', user.id)
+        .eq('workout_id', workoutId)
+        .order('performed_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ]).then(([workoutRes, lastRes]) => {
+      if (!active) return
+      if (workoutRes.error) setError(workoutRes.error.message)
 
-        if (found) {
-          const seeded: Record<string, SetState> = {}
-          found.exercises.forEach((exercise, exerciseIndex) => {
-            for (let setIndex = 0; setIndex < exercise.sets; setIndex += 1) {
-              seeded[`${exerciseIndex}-${setIndex}`] = {
-                done: false,
-                reps: exercise.reps,
-                weight: 0,
-              }
+      const found = workoutRes.data as Workout | null
+      setWorkout(found)
+
+      // A missing history isn't an error — it's a first session. Only the
+      // routine failing to load is worth surfacing.
+      const previous = lastRes.data as
+        | { completed_sets: CompletedSet[]; performed_at: string }
+        | null
+      const lastWeights = buildLastWeights(previous?.completed_sets)
+      setCarriedOverFrom(lastWeights.hasHistory ? (previous?.performed_at ?? null) : null)
+
+      if (found) {
+        const seeded: Record<string, SetState> = {}
+        found.exercises.forEach((exercise, exerciseIndex) => {
+          for (let setIndex = 0; setIndex < exercise.sets; setIndex += 1) {
+            seeded[`${exerciseIndex}-${setIndex}`] = {
+              done: false,
+              reps: exercise.reps,
+              // Start from what was actually lifted last time; 0 only when
+              // this exercise has no history at all.
+              weight: lastWeights.get(exercise.exercise_id, setIndex + 1) ?? 0,
             }
-          })
-          setSets(seeded)
-          const now = Date.now()
-          startedAt.current = now
-          lastActivityAt.current = now
-          lastTickAt.current = now
-          activeMs.current = 0
-        }
+          }
+        })
+        setSets(seeded)
+        const now = Date.now()
+        startedAt.current = now
+        lastActivityAt.current = now
+        lastTickAt.current = now
+        activeMs.current = 0
+      }
 
-        setLoading(false)
-      })
-  }, [workoutId])
+      setLoading(false)
+    })
+
+    return () => {
+      active = false
+    }
+  }, [workoutId, user])
 
   const updateSet = useCallback((key: string, patch: Partial<SetState>) => {
     // Any edit is proof the user is still training, which is what keeps the
@@ -271,6 +298,15 @@ export function WorkoutSession() {
 
       <main className="mx-auto max-w-2xl space-y-4 px-4 py-4 pb-28">
         <Alert tone="error">{error}</Alert>
+
+        {/* Pre-filled numbers should never be mistaken for something you
+            entered — say where they came from. */}
+        {carriedOverFrom ? (
+          <p className="rounded-xl bg-slate-100 px-3 py-2 text-xs text-slate-600">
+            Weights carried over from your last {workout.name} session,{' '}
+            {formatRelativeTime(carriedOverFrom)}. Adjust any that have changed.
+          </p>
+        ) : null}
 
         {workout.exercises.map((exercise, exerciseIndex) => (
           <section key={`${exercise.exercise_id}-${exerciseIndex}`} className="card overflow-hidden">
