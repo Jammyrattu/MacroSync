@@ -3,7 +3,7 @@ import { Link } from 'react-router'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { todayKey, formatShortDate } from '@/lib/dates'
-import { METRIC_BY_ID, VERIFICATION_BY_ID, challengePhase } from '@/lib/challenges'
+import { VERIFICATION_BY_ID, challengePhase } from '@/lib/challenges'
 import type { Challenge } from '@/types/db'
 import { Spinner } from '@/components/ui/Spinner'
 import { Alert } from '@/components/ui/Alert'
@@ -94,7 +94,6 @@ export function PublicChallengesTab() {
           {challenges.map((challenge) => {
             const phase = challengePhase(challenge.starts_on, challenge.ends_on, todayKey())
             const alreadyIn = challenge.challenge_participants.some((p) => p.user_id === user?.id)
-            const metric = METRIC_BY_ID[challenge.metric]
             // The roster closes on the start date — the database enforces this
             // too, this just avoids offering a button that would fail.
             const open = phase === 'upcoming'
@@ -107,7 +106,7 @@ export function PublicChallengesTab() {
                   <div className="min-w-0 flex-1">
                     <h3 className="font-semibold text-slate-900">{challenge.name}</h3>
                     <p className="mt-0.5 text-xs text-slate-500">
-                      {metric.label} · {challenge.min_checkins_per_week}×/week ·{' '}
+                      Check in {challenge.min_checkins_per_week}×/week ·{' '}
                       {VERIFICATION_BY_ID[challenge.verification].label} ·{' '}
                       {formatShortDate(challenge.starts_on)} –{' '}
                       {formatShortDate(challenge.ends_on)}

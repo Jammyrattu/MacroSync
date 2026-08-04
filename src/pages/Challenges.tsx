@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useChallenges } from '@/hooks/useChallenges'
 import { todayKey } from '@/lib/dates'
-import { METRIC_BY_ID } from '@/lib/challenges'
+import { SCORE_UNIT } from '@/lib/challenges'
 import { Tabs } from '@/components/ui/Tabs'
 import { Alert } from '@/components/ui/Alert'
 import { Spinner } from '@/components/ui/Spinner'
@@ -116,7 +116,6 @@ export function Challenges() {
               key={challenge.id}
               challenge={challenge}
               onRespond={(accept) => void respond(challenge.id, accept)}
-              onRefreshScore={() => void refreshScore(challenge.id)}
               onCheckIn={() => void handleCheckIn(challenge.id)}
             />
           ))}
@@ -125,8 +124,7 @@ export function Challenges() {
 
       {tab === 'past' && shown.length > 0 ? (
         <p className="px-1 text-xs text-slate-400">
-          Winner is whoever finished top of the leaderboard — measured in{' '}
-          {METRIC_BY_ID[shown[0].metric].unit}.
+          Winner is whoever finished top of the leaderboard — most {SCORE_UNIT} checked in.
         </p>
       ) : null}
 

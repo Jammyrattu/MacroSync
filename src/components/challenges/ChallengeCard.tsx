@@ -3,7 +3,7 @@ import { Link } from 'react-router'
 import { useAuth } from '@/hooks/useAuth'
 import { todayKey, formatShortDate } from '@/lib/dates'
 import {
-  METRIC_BY_ID,
+  SCORE_UNIT,
   VERIFICATION_BY_ID,
   challengePhase,
   maxPossibleSoFar,
@@ -26,12 +26,10 @@ const PHASE_LABEL = {
 export function ChallengeCard({
   challenge,
   onRespond,
-  onRefreshScore,
   onCheckIn,
 }: {
   challenge: ChallengeWithPlayers
   onRespond?: (accept: boolean) => void
-  onRefreshScore?: () => void
   onCheckIn?: () => void
 }) {
   const { user } = useAuth()
@@ -39,7 +37,6 @@ export function ChallengeCard({
 
   const today = todayKey()
   const phase = challengePhase(challenge.starts_on, challenge.ends_on, today)
-  const metric = METRIC_BY_ID[challenge.metric]
   const verification = VERIFICATION_BY_ID[challenge.verification]
 
   const roster = challenge.players.filter((p) => p.status === 'accepted')
@@ -64,13 +61,7 @@ export function ChallengeCard({
             <div className="min-w-0">
               <h3 className="font-semibold text-slate-900">{challenge.name}</h3>
               <p className="mt-0.5 text-xs text-slate-500">
-                {metric.label}
-                {challenge.goal_target
-                  ? ` · ${Number(challenge.goal_target).toLocaleString()}/day`
-                  : ''}
-                {' · '}
-                {challenge.min_checkins_per_week}×/week
-                {' · '}
+                Check in {challenge.min_checkins_per_week}×/week ·{' '}
                 {formatShortDate(challenge.starts_on)} – {formatShortDate(challenge.ends_on)}
               </p>
             </div>
@@ -146,7 +137,7 @@ export function ChallengeCard({
 
                     <span className="shrink-0 text-sm font-semibold text-slate-900 tabular-nums">
                       {score}
-                      <span className="ml-1 text-xs font-normal text-slate-400">{metric.unit}</span>
+                      <span className="ml-1 text-xs font-normal text-slate-400">{SCORE_UNIT}</span>
                     </span>
                   </div>
                 )
@@ -172,24 +163,10 @@ export function ChallengeCard({
               {pending > 0 ? ` · ${pending} invite${pending === 1 ? '' : 's'} pending` : ''}
             </p>
 
-            {phase !== 'finished' && challenge.me?.status === 'accepted' ? (
-              metric.automatic ? (
-                <button
-                  type="button"
-                  onClick={onRefreshScore}
-                  className="btn-secondary !px-3 !py-1.5 text-xs"
-                >
-                  Update my score
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={onCheckIn}
-                  className="btn-primary !px-3 !py-1.5 text-xs"
-                >
-                  Check in
-                </button>
-              )
+            {phase === 'active' && challenge.me?.status === 'accepted' ? (
+              <button type="button" onClick={onCheckIn} className="btn-primary !px-3 !py-1.5 text-xs">
+                Check in
+              </button>
             ) : null}
           </div>
         </>

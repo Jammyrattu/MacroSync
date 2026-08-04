@@ -1,74 +1,17 @@
-import type { ChallengeMetric, ChallengeVerification } from '@/types/db'
+import type { ChallengeVerification } from '@/types/db'
 
 /**
  * Challenge vocabulary in one place, so the create form, the cards and the
  * leaderboard can't describe the same challenge differently.
+ *
+ * There is no metric to choose: a challenge is its written rules, and everyone
+ * is scored on how often they checked in against them. The `metric` column
+ * survives in the database defaulting to 'daily_checkin' — the scoring function
+ * still reads it — but it stopped being a decision anyone has to make.
  */
 
-export interface MetricDefinition {
-  id: ChallengeMetric
-  label: string
-  /** What the number on the leaderboard means. */
-  unit: string
-  description: string
-  /** Whether this metric needs a daily bar (e.g. 10,000 steps). */
-  needsTarget: boolean
-  targetLabel?: string
-  targetPlaceholder?: string
-  /** True when MacroSync can score it without anyone checking in. */
-  automatic: boolean
-}
-
-export const CHALLENGE_METRICS: MetricDefinition[] = [
-  {
-    id: 'daily_checkin',
-    label: 'Daily check-in',
-    unit: 'days',
-    description: 'One tick per day. Simplest possible streak — everyone marks themselves in.',
-    needsTarget: false,
-    automatic: false,
-  },
-  {
-    id: 'total_workouts',
-    label: 'Total workouts',
-    unit: 'workouts',
-    description: 'Counts workouts you complete in MacroSync during the challenge window.',
-    needsTarget: false,
-    automatic: true,
-  },
-  {
-    id: 'steps',
-    label: 'Daily step goal',
-    unit: 'days hit',
-    description:
-      'Counts days you cleared the step target, from Google Health. Consistency wins, not one enormous day.',
-    needsTarget: true,
-    targetLabel: 'Steps per day',
-    targetPlaceholder: '10000',
-    automatic: true,
-  },
-  {
-    id: 'macro_adherence',
-    label: 'Macro adherence',
-    unit: 'days on target',
-    description:
-      'Counts days your logged calories landed within 10% of your own target — so everyone competes against their own numbers.',
-    needsTarget: false,
-    automatic: true,
-  },
-  {
-    id: 'custom',
-    label: 'Custom',
-    unit: 'points',
-    description: 'Write your own rules and let participants log their own score each day.',
-    needsTarget: false,
-    automatic: false,
-  },
-]
-
-export const METRIC_BY_ID = Object.fromEntries(
-  CHALLENGE_METRICS.map((m) => [m.id, m]),
-) as Record<ChallengeMetric, MetricDefinition>
+/** What a leaderboard number counts. */
+export const SCORE_UNIT = 'days'
 
 export interface VerificationDefinition {
   id: ChallengeVerification

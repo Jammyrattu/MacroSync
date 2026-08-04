@@ -4,19 +4,12 @@ import { useAuth } from '@/hooks/useAuth'
 import { uploadImage } from '@/lib/storage'
 import { addDays, formatShortDate, todayKey } from '@/lib/dates'
 import {
-  CHALLENGE_METRICS,
   DURATION_OPTIONS,
-  METRIC_BY_ID,
   MIN_CHECKIN_OPTIONS,
   START_OFFSETS,
   VERIFICATION_METHODS,
 } from '@/lib/challenges'
-import type {
-  ChallengeMetric,
-  ChallengeVerification,
-  ChallengeVisibility,
-  Profile,
-} from '@/types/db'
+import type { ChallengeVerification, ChallengeVisibility, Profile } from '@/types/db'
 import { Modal } from '@/components/ui/Modal'
 import { Alert } from '@/components/ui/Alert'
 import { ImageIcon, TrophyIcon, XIcon } from '@/components/ui/icons'
@@ -45,8 +38,6 @@ export function CreateChallengeModal({
 
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
-  const [metric, setMetric] = useState<ChallengeMetric>('daily_checkin')
-  const [target, setTarget] = useState('10000')
   const [minCheckins, setMinCheckins] = useState(4)
   const [startInDays, setStartInDays] = useState(1)
   const [weeks, setWeeks] = useState(2)
@@ -60,7 +51,6 @@ export function CreateChallengeModal({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  const definition = METRIC_BY_ID[metric]
   const startsOn = addDays(todayKey(), startInDays)
   // Inclusive of the start day, so a one-week challenge is 7 days not 8.
   const endsOn = addDays(startsOn, weeks * 7 - 1)
@@ -84,8 +74,6 @@ export function CreateChallengeModal({
   function reset() {
     setName('')
     setDescription('')
-    setMetric('daily_checkin')
-    setTarget('10000')
     setMinCheckins(4)
     setStartInDays(1)
     setWeeks(2)
@@ -102,10 +90,6 @@ export function CreateChallengeModal({
       setError('Give the challenge a name.')
       return
     }
-    if (definition.needsTarget && (!Number(target) || Number(target) <= 0)) {
-      setError(`Set a ${definition.targetLabel?.toLowerCase() ?? 'target'} above zero.`)
-      return
-    }
 
     setSaving(true)
     setError('')
@@ -118,8 +102,10 @@ export function CreateChallengeModal({
       const { error: rpcError } = await supabase.rpc('create_challenge', {
         p_name: name.trim(),
         p_description: description.trim(),
-        p_metric: metric,
-        p_goal_target: definition.needsTarget ? Number(target) : null,
+        // Every challenge is scored on check-ins now; the column keeps its
+        // default so the scoring function has something coherent to read.
+        p_metric: 'daily_checkin',
+        p_goal_target: null,
         p_verification: verification,
         p_starts_on: startsOn,
         p_ends_on: endsOn,
@@ -203,52 +189,6 @@ export function CreateChallengeModal({
             Shown as a small circle wherever the challenge appears.
           </p>
         </div>
-
-        <div>
-          <span className="label">What’s being measured</span>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {CHALLENGE_METRICS.map((option) => (
-              <button
-                key={option.id}
-                type="button"
-                onClick={() => setMetric(option.id)}
-                aria-pressed={metric === option.id}
-                className={`rounded-xl border-2 px-3 py-2 text-left transition-colors ${
-                  metric === option.id
-                    ? 'border-brand-500 bg-brand-50'
-                    : 'border-slate-200 hover:border-slate-300'
-                }`}
-              >
-                <span
-                  className={`block text-sm font-semibold ${
-                    metric === option.id ? 'text-brand-800' : 'text-slate-700'
-                  }`}
-                >
-                  {option.label}
-                </span>
-                <span className="mt-0.5 block text-xs text-slate-500">{option.description}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {definition.needsTarget ? (
-          <div>
-            <label className="label" htmlFor="ch-target">
-              {definition.targetLabel}
-            </label>
-            <input
-              id="ch-target"
-              type="number"
-              inputMode="numeric"
-              min={1}
-              value={target}
-              onChange={(e) => setTarget(e.target.value)}
-              className="input"
-              placeholder={definition.targetPlaceholder}
-            />
-          </div>
-        ) : null}
 
         <div className="grid gap-3 sm:grid-cols-3">
           <div>
