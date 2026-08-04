@@ -6,6 +6,7 @@ import {
   SCORE_UNIT,
   VERIFICATION_BY_ID,
   challengePhase,
+  durationLabel,
   maxPossibleSoFar,
 } from '@/lib/challenges'
 import { Avatar } from '@/components/ui/Avatar'
@@ -22,6 +23,17 @@ const PHASE_LABEL = {
   active: 'In progress',
   finished: 'Finished',
 } as const
+
+/** One labelled fact in the challenge's terms. */
+function Detail({ label, value, hint }: { label: string; value: string; hint?: string }) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-[11px] font-medium tracking-wide text-slate-400 uppercase">{label}</dt>
+      <dd className="mt-0.5 text-sm font-semibold text-slate-900">{value}</dd>
+      {hint ? <dd className="text-[11px] text-slate-400">{hint}</dd> : null}
+    </div>
+  )
+}
 
 /** One challenge: check in at the top, then everyone's check-ins below it. */
 export function ChallengeDetail() {
@@ -57,6 +69,7 @@ export function ChallengeDetail() {
   const today = todayKey()
   const phase = challengePhase(challenge.starts_on, challenge.ends_on, today)
   const roster = players.filter((p) => p.status === 'accepted')
+  const pendingCount = players.filter((p) => p.status === 'pending').length
   const joined = me?.status === 'accepted'
   const checkedInToday = feed.some((c) => c.user_id === user?.id && c.on_date === today)
 
@@ -94,31 +107,46 @@ export function ChallengeDetail() {
                 {PHASE_LABEL[phase]}
               </span>
             </div>
-            <p className="mt-1 text-xs text-slate-500">
-              Check in {challenge.min_checkins_per_week}×/week ·{' '}
-              {VERIFICATION_BY_ID[challenge.verification].label} ·{' '}
-              {formatShortDate(challenge.starts_on)} – {formatShortDate(challenge.ends_on)}
+            <p className="mt-0.5 text-xs text-slate-500">
+              {roster.length} {roster.length === 1 ? 'player' : 'players'}
+              {pendingCount > 0 ? ` · ${pendingCount} invite${pendingCount === 1 ? '' : 's'} pending` : ''}
             </p>
           </div>
         </div>
+
+        {/* The rules are the challenge — they belong at the top, not buried in
+            the check-in box where you only see them once you can act. */}
+        <div className="mt-4">
+          <h2 className="text-xs font-semibold tracking-wide text-slate-500 uppercase">
+            Check-in rules
+          </h2>
+          <p className="mt-1 rounded-xl bg-slate-50 px-3 py-2.5 text-sm whitespace-pre-wrap text-slate-700">
+            {challenge.description || 'No rules were written for this challenge.'}
+          </p>
+        </div>
+
+        <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-slate-100 pt-4 sm:grid-cols-3">
+          <Detail label="Minimum check-ins" value={`${challenge.min_checkins_per_week}× a week`} />
+          <Detail label="Duration" value={durationLabel(challenge.starts_on, challenge.ends_on)} />
+          <Detail label="Verification" value={VERIFICATION_BY_ID[challenge.verification].label} />
+          <Detail label="Starts" value={formatShortDate(challenge.starts_on)} />
+          <Detail label="Ends" value={formatShortDate(challenge.ends_on)} />
+          <Detail
+            label="Who can see it"
+            value={challenge.visibility === 'public' ? 'Public' : 'Private'}
+            hint={
+              challenge.visibility === 'public'
+                ? 'Listed in Community'
+                : 'Invited members only'
+            }
+          />
+        </dl>
       </section>
 
       <Alert tone="error">{error}</Alert>
 
-      {/* Check in first — it's why anyone opens this page. */}
-      {joined && phase === 'active' ? (
-        <CheckInBox
-          challenge={challenge}
-          alreadyCheckedIn={checkedInToday}
-          onCheckedIn={() => void refresh()}
-        />
-      ) : joined && phase === 'upcoming' ? (
-        <section className="card p-5 text-center text-sm text-slate-500">
-          Check-ins open on {formatShortDate(challenge.starts_on)}.
-        </section>
-      ) : null}
-
-      {/* Leaderboard */}
+      {/* Standings sit directly under the terms — where you are relative to
+          everyone else is the first thing you want after knowing the rules. */}
       <section className="card p-5">
         <h2 className="font-semibold text-slate-900">Leaderboard</h2>
         <div className="mt-3 space-y-2">
@@ -166,6 +194,18 @@ export function ChallengeDetail() {
           )}
         </div>
       </section>
+
+      {joined && phase === 'active' ? (
+        <CheckInBox
+          challenge={challenge}
+          alreadyCheckedIn={checkedInToday}
+          onCheckedIn={() => void refresh()}
+        />
+      ) : joined && phase === 'upcoming' ? (
+        <section className="card p-5 text-center text-sm text-slate-500">
+          Check-ins open on {formatShortDate(challenge.starts_on)}.
+        </section>
+      ) : null}
 
       {/* The feed */}
       <section className="space-y-3">

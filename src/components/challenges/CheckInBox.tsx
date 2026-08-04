@@ -101,12 +101,8 @@ export function CheckInBox({
         ) : null}
       </div>
 
-      {challenge.description ? (
-        <p className="mt-2 rounded-xl bg-slate-50 px-3 py-2 text-sm whitespace-pre-wrap text-slate-600">
-          {challenge.description}
-        </p>
-      ) : null}
-
+      {/* The rules live in the pane at the top of the page now — repeating them
+          here just pushed the actual input further down. */}
       <textarea
         value={note}
         onChange={(e) => setNote(e.target.value)}

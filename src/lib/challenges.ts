@@ -85,6 +85,19 @@ export function challengeDays(startsOn: string, endsOn: string): number {
 }
 
 /**
+ * "2 weeks" where it divides cleanly, otherwise the day count. Challenges are
+ * created in whole weeks, so the day form is only for anything hand-edited.
+ */
+export function durationLabel(startsOn: string, endsOn: string): string {
+  const days = challengeDays(startsOn, endsOn)
+  if (days % 7 === 0) {
+    const weeks = days / 7
+    return `${weeks} ${weeks === 1 ? 'week' : 'weeks'}`
+  }
+  return `${days} ${days === 1 ? 'day' : 'days'}`
+}
+
+/**
  * The best score anyone could have reached by today — the denominator for a
  * progress bar. Capped at the challenge length so it can't exceed 100%.
  */
