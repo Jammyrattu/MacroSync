@@ -15,7 +15,6 @@ import { Signup } from '@/pages/auth/Signup'
 import { ForgotPassword } from '@/pages/auth/ForgotPassword'
 import { ResetPassword } from '@/pages/auth/ResetPassword'
 import { Onboarding } from '@/pages/Onboarding'
-import { Dashboard } from '@/pages/Dashboard'
 import { AddFood } from '@/pages/AddFood'
 import { Workouts } from '@/pages/Workouts'
 import { WorkoutSession } from '@/pages/WorkoutSession'
@@ -66,7 +65,11 @@ export default function App() {
               <Route path="/workouts/session/:workoutId" element={<WorkoutSession />} />
 
               <Route element={<AppLayout />}>
-                <Route index element={<Dashboard />} />
+                {/* Progress is the home page. Redirecting rather than
+                    rendering it here keeps one canonical URL, so the nav
+                    highlights correctly and every existing navigate('/') in
+                    the app still lands somewhere real. */}
+                <Route index element={<Navigate to="/progress" replace />} />
                 <Route path="/add-food" element={<AddFood />} />
                 <Route
                   path="/progress"
