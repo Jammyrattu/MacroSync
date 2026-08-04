@@ -28,6 +28,15 @@ verify_jwt = true
 [functions.health-disconnect]
 verify_jwt = true
 
+[functions.send-notification]
+# Called by Postgres via pg_net, which has no user session to present. The
+# x-notification-secret header is the boundary instead.
+verify_jwt = false
+
+[functions.daily-challenge-reminder]
+# Same: the caller is pg_cron.
+verify_jwt = false
+
 [functions.health-oauth-callback]
 # The ONE exception. Google redirects the user's browser here straight from the
 # consent screen with no session attached, so a JWT can never be present.

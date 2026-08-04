@@ -14,6 +14,7 @@ import { Avatar } from '@/components/ui/Avatar'
 import { Alert } from '@/components/ui/Alert'
 import { LogoutIcon } from '@/components/ui/icons'
 import { HealthSyncCard } from '@/components/health/HealthSyncCard'
+import { NotificationPreferences } from '@/components/settings/NotificationPreferences'
 
 /**
  * Profile, body stats and macro targets.
@@ -407,6 +408,8 @@ export function Settings() {
           </div>
         </div>
       </section>
+
+      <NotificationPreferences />
 
       {/* Google Health */}
       <section className="card p-5">
