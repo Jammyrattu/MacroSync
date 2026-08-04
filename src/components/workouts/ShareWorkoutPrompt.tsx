@@ -14,17 +14,22 @@ export function ShareWorkoutPrompt({
   durationSeconds,
   setsCompleted,
   totalVolume,
+  caloriesBurned,
   onDone,
 }: {
   workoutName: string
   durationSeconds: number
   setsCompleted: number
   totalVolume: number
+  /** Null when body weight was unknown, so no estimate could be made. */
+  caloriesBurned?: number | null
   onDone: () => void
 }) {
   const { user } = useAuth()
   const [content, setContent] = useState(
-    `Just finished ${workoutName} — ${setsCompleted} sets in ${formatDuration(durationSeconds)} for ${Math.round(totalVolume).toLocaleString()} kg of total volume.`,
+    `Just finished ${workoutName} — ${setsCompleted} sets in ${formatDuration(durationSeconds)} for ${Math.round(totalVolume).toLocaleString()} kg of total volume${
+      caloriesBurned ? `, about ${caloriesBurned} kcal` : ''
+    }.`,
   )
   const [sharing, setSharing] = useState(false)
   const [error, setError] = useState('')
@@ -60,10 +65,15 @@ export function ShareWorkoutPrompt({
           <h1 className="mt-4 text-xl font-bold text-slate-900">Workout complete</h1>
           <p className="text-sm text-slate-500">{workoutName}</p>
 
-          <div className="mt-5 grid grid-cols-3 gap-3">
+          <div
+            className={`mt-5 grid gap-3 ${caloriesBurned == null ? 'grid-cols-3' : 'grid-cols-2 sm:grid-cols-4'}`}
+          >
             <Stat label="Duration" value={formatDuration(durationSeconds)} />
             <Stat label="Sets" value={String(setsCompleted)} />
             <Stat label="Volume" value={`${Math.round(totalVolume).toLocaleString()} kg`} />
+            {caloriesBurned != null ? (
+              <Stat label="Calories" value={`${caloriesBurned} kcal`} />
+            ) : null}
           </div>
         </div>
 

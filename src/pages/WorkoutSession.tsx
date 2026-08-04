@@ -2,13 +2,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
-import { formatDuration } from '@/lib/dates'
+import { IDLE_TIMEOUT_MS, estimateWorkoutCalories, type WorkVolume } from '@/lib/calories'
 import type { CompletedSet, RoutineExercise, Workout } from '@/types/db'
 import type { MuscleGroup } from '@/data/exercises'
 import { Spinner } from '@/components/ui/Spinner'
 import { Alert } from '@/components/ui/Alert'
 import { Modal } from '@/components/ui/Modal'
-import { CheckIcon, ClockIcon, XIcon } from '@/components/ui/icons'
+import { CheckIcon, XIcon } from '@/components/ui/icons'
+import { LiveWorkoutStats } from '@/components/workouts/LiveWorkoutStats'
 import { ShareWorkoutPrompt } from '@/components/workouts/ShareWorkoutPrompt'
 import { ExerciseDetailModal } from '@/components/workouts/ExerciseDetailModal'
 
@@ -31,19 +32,34 @@ interface SetState {
 export function WorkoutSession() {
   const { workoutId } = useParams<{ workoutId: string }>()
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user, nutritionProfile } = useAuth()
 
   const [workout, setWorkout] = useState<Workout | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [sets, setSets] = useState<Record<string, SetState>>({})
-  const [elapsed, setElapsed] = useState(0)
   const [finishing, setFinishing] = useState(false)
   const [savedLogId, setSavedLogId] = useState<string | null>(null)
+  const [savedSummary, setSavedSummary] = useState<{ seconds: number; calories: number | null }>({
+    seconds: 0,
+    calories: null,
+  })
   const [confirmQuit, setConfirmQuit] = useState(false)
   const [detail, setDetail] = useState<RoutineExercise | null>(null)
 
+  /**
+   * Session clock. Refs rather than state on purpose: these advance every
+   * second, and the set inputs below must not re-render at that rate. Only
+   * LiveWorkoutStats reads them on a tick.
+   */
   const startedAt = useRef<number>(Date.now())
+  const lastActivityAt = useRef<number>(Date.now())
+  const activeMs = useRef<number>(0)
+  const lastTickAt = useRef<number>(Date.now())
+  const clock = useMemo(
+    () => ({ startedAt, lastActivityAt, activeMs, lastTickAt }),
+    [],
+  )
 
   // Load the routine and seed one SetState per prescribed set.
   useEffect(() => {
@@ -72,31 +88,28 @@ export function WorkoutSession() {
             }
           })
           setSets(seeded)
-          startedAt.current = Date.now()
+          const now = Date.now()
+          startedAt.current = now
+          lastActivityAt.current = now
+          lastTickAt.current = now
+          activeMs.current = 0
         }
 
         setLoading(false)
       })
   }, [workoutId])
 
-  // Tick once a second; the displayed value is always recomputed from the
-  // start timestamp, so throttling can't make it drift.
-  useEffect(() => {
-    if (savedLogId) return
-    const id = window.setInterval(
-      () => setElapsed(Math.floor((Date.now() - startedAt.current) / 1000)),
-      1000,
-    )
-    return () => window.clearInterval(id)
-  }, [savedLogId])
-
   const updateSet = useCallback((key: string, patch: Partial<SetState>) => {
+    // Any edit is proof the user is still training, which is what keeps the
+    // active-time accumulator running through a rest period.
+    lastActivityAt.current = Date.now()
     setSets((current) => ({ ...current, [key]: { ...current[key], ...patch } }))
   }, [])
 
-  const { completedSets, totalVolume, doneCount, totalCount } = useMemo(() => {
+  const { completedSets, totalVolume, totalReps, doneCount, totalCount } = useMemo(() => {
     const completed: CompletedSet[] = []
     let volume = 0
+    let reps = 0
     let total = 0
 
     workout?.exercises.forEach((exercise, exerciseIndex) => {
@@ -113,16 +126,24 @@ export function WorkoutSession() {
           weight_kg: state.weight,
         })
         volume += state.reps * state.weight
+        reps += state.reps
       }
     })
 
     return {
       completedSets: completed,
       totalVolume: volume,
+      totalReps: reps,
       doneCount: completed.length,
       totalCount: total,
     }
   }, [workout, sets])
+
+  /** Stable identity so the ticking child doesn't re-render on every parent pass. */
+  const volume = useMemo<WorkVolume>(
+    () => ({ completedSets: doneCount, totalVolumeKg: totalVolume, totalReps }),
+    [doneCount, totalVolume, totalReps],
+  )
 
   async function handleComplete() {
     if (!user || !workout) return
@@ -130,7 +151,26 @@ export function WorkoutSession() {
     setFinishing(true)
     setError('')
 
-    const duration = Math.floor((Date.now() - startedAt.current) / 1000)
+    const finishedAt = Date.now()
+    const duration = Math.floor((finishedAt - startedAt.current) / 1000)
+
+    // Settle the accumulator up to this moment before reading it — the last
+    // tick could be up to a second ago, and pressing Finish is itself activity.
+    const activeUntil = lastActivityAt.current + IDLE_TIMEOUT_MS
+    const creditEnd = Math.min(finishedAt, activeUntil)
+    if (creditEnd > lastTickAt.current) activeMs.current += creditEnd - lastTickAt.current
+    lastTickAt.current = finishedAt
+
+    const activeSeconds = Math.floor(activeMs.current / 1000)
+
+    // The same function the live readout uses, so the figure can't jump when
+    // the button is pressed.
+    const estimate = estimateWorkoutCalories({
+      activeSeconds,
+      elapsedSeconds: duration,
+      bodyWeightKg: nutritionProfile?.weight_kg,
+      volume,
+    })
 
     const { data, error: saveError } = await supabase
       .from('workout_logs')
@@ -141,6 +181,11 @@ export function WorkoutSession() {
         duration_seconds: duration,
         completed_sets: completedSets,
         total_volume: totalVolume,
+        // Null rather than 0 when body weight is unknown: "we couldn't work it
+        // out" and "you burned nothing" are different claims.
+        calories_burned: estimate?.calories ?? null,
+        active_seconds: activeSeconds,
+        met_used: estimate ? Number(estimate.met.toFixed(1)) : null,
       })
       .select('id')
       .single()
@@ -152,7 +197,7 @@ export function WorkoutSession() {
       return
     }
 
-    setElapsed(duration)
+    setSavedSummary({ seconds: duration, calories: estimate?.calories ?? null })
     setSavedLogId(data.id as string)
   }
 
@@ -174,9 +219,10 @@ export function WorkoutSession() {
     return (
       <ShareWorkoutPrompt
         workoutName={workout.name}
-        durationSeconds={elapsed}
+        durationSeconds={savedSummary.seconds}
         setsCompleted={doneCount}
         totalVolume={totalVolume}
+        caloriesBurned={savedSummary.calories}
         onDone={() => navigate('/workouts')}
       />
     )
@@ -203,10 +249,16 @@ export function WorkoutSession() {
             </p>
           </div>
 
-          <span className="flex shrink-0 items-center gap-1.5 rounded-lg bg-brand-50 px-3 py-1.5 font-mono text-sm font-semibold text-brand-700 tabular-nums">
-            <ClockIcon className="size-4" />
-            {formatDuration(elapsed)}
-          </span>
+          {/* Its own component: this ticks once a second and the set inputs
+              below must not re-render with it. */}
+          <div className="shrink-0 rounded-lg bg-brand-50 px-3 py-1.5">
+            <LiveWorkoutStats
+              clock={clock}
+              bodyWeightKg={nutritionProfile?.weight_kg}
+              volume={volume}
+              live={!savedLogId}
+            />
+          </div>
         </div>
 
         <div className="h-1 bg-slate-100">

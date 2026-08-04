@@ -37,6 +37,8 @@ export function WorkoutHistory({ logs }: { logs: WorkoutLog[] }) {
                 <p className="text-xs text-slate-500">
                   {formatRelativeTime(log.performed_at)} · {log.completed_sets.length} sets ·{' '}
                   {Math.round(Number(log.total_volume)).toLocaleString()} kg volume
+                  {/* Absent on sessions logged before body weight was known. */}
+                  {log.calories_burned != null ? ` · ${log.calories_burned} kcal` : ''}
                 </p>
               </div>
 

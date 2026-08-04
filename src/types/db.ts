@@ -131,6 +131,11 @@ export interface WorkoutLog {
   duration_seconds: number
   completed_sets: CompletedSet[]
   total_volume: number
+  /** MET estimate; null where body weight was unknown at the time. */
+  calories_burned: number | null
+  /** Seconds that counted — excludes idle rest and the session cap. */
+  active_seconds: number | null
+  met_used: number | null
   performed_at: string
 }
 
