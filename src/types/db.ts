@@ -220,6 +220,58 @@ export interface HealthMetric {
   updated_at: string
 }
 
+/**
+ * Challenges — invite other members to compete on a shared goal.
+ * No money is involved anywhere: there is no buy-in, stake or payout.
+ */
+export type ChallengeMetric =
+  | 'daily_checkin'
+  | 'total_workouts'
+  | 'steps'
+  | 'macro_adherence'
+  | 'custom'
+
+export type ChallengeVerification = 'honor' | 'photo' | 'automatic'
+export type ParticipantStatus = 'pending' | 'accepted' | 'declined'
+
+export interface Challenge {
+  id: string
+  owner_id: string
+  name: string
+  description: string
+  metric: ChallengeMetric
+  /** Daily bar for metrics that need one (e.g. steps); null otherwise. */
+  goal_target: number | null
+  verification: ChallengeVerification
+  starts_on: string
+  ends_on: string
+  created_at: string
+}
+
+export interface ChallengeParticipant {
+  id: string
+  challenge_id: string
+  user_id: string
+  status: ParticipantStatus
+  /** Denormalised leaderboard figure; meaning depends on the challenge metric. */
+  score: number
+  invited_by: string | null
+  responded_at: string | null
+  scored_at: string | null
+  created_at: string
+}
+
+export interface ChallengeCheckin {
+  id: string
+  challenge_id: string
+  user_id: string
+  on_date: string
+  value: number
+  note: string
+  photo_url: string | null
+  created_at: string
+}
+
 /** An exercise as stored in the database — admins can edit these. */
 export interface ExerciseRow {
   id: string

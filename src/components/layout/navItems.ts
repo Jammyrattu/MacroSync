@@ -3,6 +3,7 @@ import {
   DumbbellIcon,
   PlusIcon,
   SettingsIcon,
+  TrophyIcon,
   UsersIcon,
 } from '@/components/ui/icons'
 
@@ -15,6 +16,7 @@ export const NAV_ITEMS = [
   { to: '/progress', label: 'Dashboard', Icon: ChartIcon, end: false },
   { to: '/add-food', label: 'Food Diary', Icon: PlusIcon, end: false },
   { to: '/workouts', label: 'Workouts', Icon: DumbbellIcon, end: false },
+  { to: '/challenges', label: 'Challenges', Icon: TrophyIcon, end: false },
   { to: '/community', label: 'Community', Icon: UsersIcon, end: false },
   { to: '/settings', label: 'Settings', Icon: SettingsIcon, end: false },
 ] as const

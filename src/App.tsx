@@ -19,6 +19,7 @@ import { AddFood } from '@/pages/AddFood'
 import { Workouts } from '@/pages/Workouts'
 import { WorkoutSession } from '@/pages/WorkoutSession'
 import { Community } from '@/pages/Community'
+import { Challenges } from '@/pages/Challenges'
 import { UserProfile } from '@/pages/UserProfile'
 import { Settings } from '@/pages/Settings'
 import { Admin } from '@/pages/Admin'
@@ -81,6 +82,7 @@ export default function App() {
                 />
                 <Route path="/workouts" element={<Workouts />} />
                 <Route path="/community" element={<Community />} />
+                <Route path="/challenges" element={<Challenges />} />
                 <Route path="/u/:userId" element={<UserProfile />} />
                 <Route path="/settings" element={<Settings />} />
 
