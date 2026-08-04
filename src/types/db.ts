@@ -231,8 +231,9 @@ export type ChallengeMetric =
   | 'macro_adherence'
   | 'custom'
 
-export type ChallengeVerification = 'honor' | 'photo' | 'automatic'
+export type ChallengeVerification = 'honor' | 'photo'
 export type ParticipantStatus = 'pending' | 'accepted' | 'declined'
+export type ChallengeVisibility = 'private' | 'public'
 
 export interface Challenge {
   id: string
@@ -245,6 +246,11 @@ export interface Challenge {
   verification: ChallengeVerification
   starts_on: string
   ends_on: string
+  /** Days a week a participant is expected to check in (2–7). */
+  min_checkins_per_week: number
+  /** Public challenges are listed in Community; invites stay private either way. */
+  visibility: ChallengeVisibility
+  logo_url: string | null
   created_at: string
 }
 

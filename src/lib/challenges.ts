@@ -76,6 +76,10 @@ export interface VerificationDefinition {
   description: string
 }
 
+/**
+ * How a check-in is proven. Two options only — whether MacroSync can score a
+ * metric on its own is a property of the metric, not of the honour code.
+ */
 export const VERIFICATION_METHODS: VerificationDefinition[] = [
   {
     id: 'honor',
@@ -87,12 +91,28 @@ export const VERIFICATION_METHODS: VerificationDefinition[] = [
     label: 'Photo proof',
     description: 'Each check-in asks for a photo the rest of the group can see.',
   },
-  {
-    id: 'automatic',
-    label: 'Automatic',
-    description: 'Scored from your MacroSync data. Nothing to check in.',
-  },
 ]
+
+/** Days a week a participant is expected to check in. */
+export const MIN_CHECKIN_OPTIONS = [2, 3, 4, 5, 6, 7] as const
+
+/** How soon it starts. Never today — everyone gets a chance to accept first. */
+export const START_OFFSETS = [
+  { days: 1, label: 'Tomorrow' },
+  { days: 2, label: 'In 2 days' },
+  { days: 3, label: 'In 3 days' },
+  { days: 4, label: 'In 4 days' },
+  { days: 5, label: 'In 5 days' },
+  { days: 6, label: 'In 6 days' },
+  { days: 7, label: 'In 7 days' },
+] as const
+
+export const DURATION_OPTIONS = [
+  { weeks: 1, label: '1 week' },
+  { weeks: 2, label: '2 weeks' },
+  { weeks: 3, label: '3 weeks' },
+  { weeks: 4, label: '4 weeks' },
+] as const
 
 export const VERIFICATION_BY_ID = Object.fromEntries(
   VERIFICATION_METHODS.map((v) => [v.id, v]),

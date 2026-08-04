@@ -11,6 +11,7 @@ import {
 import type { ChallengeWithPlayers } from '@/hooks/useChallenges'
 import { Avatar } from '@/components/ui/Avatar'
 import { ChevronDownIcon } from '@/components/ui/icons'
+import { ChallengeLogo } from './ChallengeLogo'
 
 const PHASE_LABEL = {
   upcoming: 'Starts soon',
@@ -57,14 +58,22 @@ export function ChallengeCard({
     <article className="card overflow-hidden">
       <div className="px-4 pt-4">
         <div className="flex flex-wrap items-start justify-between gap-2">
-          <div className="min-w-0">
-            <h3 className="font-semibold text-slate-900">{challenge.name}</h3>
-            <p className="mt-0.5 text-xs text-slate-500">
-              {metric.label}
-              {challenge.goal_target ? ` · ${Number(challenge.goal_target).toLocaleString()}/day` : ''}
-              {' · '}
-              {formatShortDate(challenge.starts_on)} – {formatShortDate(challenge.ends_on)}
-            </p>
+          <div className="flex min-w-0 items-start gap-3">
+            <ChallengeLogo challenge={challenge} />
+
+            <div className="min-w-0">
+              <h3 className="font-semibold text-slate-900">{challenge.name}</h3>
+              <p className="mt-0.5 text-xs text-slate-500">
+                {metric.label}
+                {challenge.goal_target
+                  ? ` · ${Number(challenge.goal_target).toLocaleString()}/day`
+                  : ''}
+                {' · '}
+                {challenge.min_checkins_per_week}×/week
+                {' · '}
+                {formatShortDate(challenge.starts_on)} – {formatShortDate(challenge.ends_on)}
+              </p>
+            </div>
           </div>
 
           <span

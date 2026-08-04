@@ -11,12 +11,14 @@ import { PostCard } from '@/components/community/PostCard'
 import { PostComposer } from '@/components/community/PostComposer'
 import { PeopleTab } from '@/components/community/PeopleTab'
 import { PublicRoutinesTab } from '@/components/community/PublicRoutinesTab'
+import { PublicChallengesTab } from '@/components/community/PublicChallengesTab'
 import { PlusIcon, UsersIcon } from '@/components/ui/icons'
 
 const TABS = [
   { id: 'feed', label: 'Feed' },
   { id: 'people', label: 'People' },
   { id: 'routines', label: 'Routines' },
+  { id: 'challenges', label: 'Challenges' },
 ] as const
 
 type TabId = (typeof TABS)[number]['id']
@@ -108,6 +110,7 @@ export function Community() {
 
       {tab === 'people' && <PeopleTab />}
       {tab === 'routines' && <PublicRoutinesTab />}
+      {tab === 'challenges' && <PublicChallengesTab />}
 
       <PostComposer
         open={composerOpen}
