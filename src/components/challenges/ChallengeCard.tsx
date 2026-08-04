@@ -26,11 +26,9 @@ const PHASE_LABEL = {
 export function ChallengeCard({
   challenge,
   onRespond,
-  onCheckIn,
 }: {
   challenge: ChallengeWithPlayers
   onRespond?: (accept: boolean) => void
-  onCheckIn?: () => void
 }) {
   const { user } = useAuth()
   const [expanded, setExpanded] = useState(false)
@@ -163,11 +161,10 @@ export function ChallengeCard({
               {pending > 0 ? ` · ${pending} invite${pending === 1 ? '' : 's'} pending` : ''}
             </p>
 
-            {phase === 'active' && challenge.me?.status === 'accepted' ? (
-              <button type="button" onClick={onCheckIn} className="btn-primary !px-3 !py-1.5 text-xs">
-                Check in
-              </button>
-            ) : null}
+            {/* The card summarises; the page is where you actually do anything. */}
+            <Link to={`/challenges/${challenge.id}`} className="btn-primary !px-3 !py-1.5 text-xs">
+              View
+            </Link>
           </div>
         </>
       )}

@@ -1,8 +1,5 @@
 import { useState } from 'react'
-import { supabase } from '@/lib/supabase'
-import { useAuth } from '@/hooks/useAuth'
 import { useChallenges } from '@/hooks/useChallenges'
-import { todayKey } from '@/lib/dates'
 import { SCORE_UNIT } from '@/lib/challenges'
 import { Tabs } from '@/components/ui/Tabs'
 import { Alert } from '@/components/ui/Alert'
@@ -21,11 +18,9 @@ type TabId = 'active' | 'invites' | 'past'
  * No money anywhere — challenges here are about who turns up, not who paid in.
  */
 export function Challenges() {
-  const { user } = useAuth()
-  const { buckets, loading, error, refresh, respond, refreshScore } = useChallenges()
+  const { buckets, loading, error, refresh, respond } = useChallenges()
   const [tab, setTab] = useState<TabId>('active')
   const [creating, setCreating] = useState(false)
-  const [notice, setNotice] = useState('')
 
   const tabs = [
     { id: 'active' as const, label: `Active${buckets.active.length ? ` (${buckets.active.length})` : ''}` },
@@ -36,25 +31,8 @@ export function Challenges() {
     { id: 'past' as const, label: 'Past' },
   ]
 
-  /** Manual check-in for honour/photo/custom challenges. */
-  async function handleCheckIn(challengeId: string) {
-    if (!user) return
-
-    const { error: writeError } = await supabase.from('challenge_checkins').upsert(
-      { challenge_id: challengeId, user_id: user.id, on_date: todayKey(), value: 1 },
-      { onConflict: 'challenge_id,user_id,on_date' },
-    )
-
-    if (writeError) {
-      setNotice('')
-      return
-    }
-
-    // The score is derived from check-ins, so it has to be recomputed after one.
-    await refreshScore(challengeId)
-    setNotice('Checked in for today.')
-    window.setTimeout(() => setNotice(''), 4000)
-  }
+  // Checking in moved to the challenge's own page — it needs a note, and a
+  // photo where the challenge demands one, neither of which fits on a card.
 
   const shown = buckets[tab]
 
@@ -75,7 +53,6 @@ export function Challenges() {
 
       <Tabs tabs={tabs} active={tab} onChange={setTab} />
 
-      {notice ? <Alert tone="success">{notice}</Alert> : null}
       <Alert tone="error">{error}</Alert>
 
       {loading ? (
@@ -116,7 +93,6 @@ export function Challenges() {
               key={challenge.id}
               challenge={challenge}
               onRespond={(accept) => void respond(challenge.id, accept)}
-              onCheckIn={() => void handleCheckIn(challenge.id)}
             />
           ))}
         </div>

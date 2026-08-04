@@ -201,6 +201,25 @@ export const templates = {
     cta: { label: 'Check in now', url: `${opts.appUrl}/challenges` },
   }),
 
+  checkin_comment: (opts: {
+    actorName: string
+    challengeName: string
+    excerpt: string
+    challengeId: string
+    appUrl: string
+  }): EmailContent => ({
+    subject: `${opts.actorName} commented on your check-in`,
+    preview: opts.excerpt.slice(0, 90) || 'Open the challenge to see it.',
+    heading: 'Someone replied to your check-in',
+    body: [
+      `${strong(opts.actorName)} commented on your check-in for ${strong(opts.challengeName)}.`,
+      opts.excerpt
+        ? `<span style="display:block;padding:12px 14px;background:${SURFACE};border-left:3px solid ${BRAND};border-radius:0 8px 8px 0;color:${INK};">${escapeHtml(opts.excerpt)}</span>`
+        : '',
+    ].filter(Boolean),
+    cta: { label: 'View the challenge', url: `${opts.appUrl}/challenges/${opts.challengeId}` },
+  }),
+
   daily_reminder: (opts: {
     challengeName: string
     doneThisWeek: number

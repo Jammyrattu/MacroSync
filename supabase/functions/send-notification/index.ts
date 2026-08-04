@@ -233,6 +233,42 @@ Deno.serve(async (req) => {
         return json({ event, sent: to.length, ...result })
       }
 
+      case 'checkin_comment': {
+        const { data: checkin } = await admin
+          .from('challenge_checkins')
+          .select('user_id')
+          .eq('id', payload.checkin_id)
+          .maybeSingle()
+        if (!checkin) return json({ skipped: 'check-in gone' })
+        // Commenting on your own check-in shouldn't email you about it.
+        if (checkin.user_id === payload.actor_id) return json({ skipped: 'self' })
+
+        const { data: challenge } = await admin
+          .from('challenges')
+          .select('name')
+          .eq('id', payload.challenge_id)
+          .maybeSingle()
+
+        const { data: comment } = await admin
+          .from('challenge_checkin_comments')
+          .select('content')
+          .eq('id', payload.comment_id)
+          .maybeSingle()
+
+        const to = await recipientsFor(admin, [checkin.user_id], 'on_checkin_comment')
+        const result = await sendEmail(
+          to.map((r) => r.email),
+          templates.checkin_comment({
+            actorName: await name(payload.actor_id),
+            challengeName: challenge?.name ?? 'your challenge',
+            excerpt: (comment?.content ?? '').slice(0, 200),
+            challengeId: payload.challenge_id,
+            appUrl: APP_URL,
+          }),
+        )
+        return json({ event, sent: to.length, ...result })
+      }
+
       default:
         return json({ error: `Unknown event: ${event}` }, 400)
     }

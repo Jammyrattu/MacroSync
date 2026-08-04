@@ -274,7 +274,19 @@ export interface ChallengeCheckin {
   on_date: string
   value: number
   note: string
+  /** Required when the challenge's verification is 'photo' — enforced by a trigger. */
   photo_url: string | null
+  created_at: string
+}
+
+export interface ChallengeCheckinComment {
+  id: string
+  checkin_id: string
+  challenge_id: string
+  user_id: string
+  content: string
+  /** Optional GIF, hot-linked from the provider. */
+  image_url: string | null
   created_at: string
 }
 
