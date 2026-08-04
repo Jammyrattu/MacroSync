@@ -42,7 +42,7 @@ type TabId = (typeof TABS)[number]['id']
  * folding into shared components once that redesign lands.
  */
 export function AddFood() {
-  const { user, profile, nutritionProfile } = useAuth()
+  const { user, nutritionProfile } = useAuth()
   const [params] = useSearchParams()
   const mealParam = params.get('meal') as Meal | null
 
@@ -53,7 +53,6 @@ export function AddFood() {
     useDayLog(dateKey)
 
   const calorieGoal = nutritionProfile?.calorie_target ?? 2000
-  const firstName = profile?.display_name?.split(' ')[0]
 
   // --- Food picker ----------------------------------------------------------
   const [tab, setTab] = useState<TabId>('search')
@@ -145,9 +144,7 @@ export function AddFood() {
   return (
     <div className="space-y-4">
       <div className="flex items-baseline justify-between">
-        <h1 className="text-xl font-bold tracking-tight text-slate-900">
-          {firstName ? `Hi, ${firstName}` : 'Add food'}
-        </h1>
+        <h1 className="text-xl font-bold tracking-tight text-slate-900">Food Diary</h1>
         {/* Was a link to this page; now that the picker is here it jumps to it. */}
         <a href="#add-food" className="btn-primary !py-2 md:hidden">
           <PlusIcon className="size-4" />

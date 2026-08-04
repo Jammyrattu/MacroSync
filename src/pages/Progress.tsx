@@ -123,7 +123,7 @@ export function Progress() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-bold tracking-tight text-slate-900">Progress</h1>
+      <h1 className="text-xl font-bold tracking-tight text-slate-900">Dashboard</h1>
 
       <DateNavigator date={date} onChange={setDate} />
 
