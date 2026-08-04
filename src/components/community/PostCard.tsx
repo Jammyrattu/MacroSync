@@ -77,12 +77,16 @@ export function PostCard({
       </div>
 
       {post.image_url ? (
-        <img
-          src={post.image_url}
-          alt=""
-          className="mt-3 max-h-96 w-full object-cover"
-          loading="lazy"
-        />
+        // Same reasoning as the check-in feed: cover crops portrait photos and
+        // tall GIFs on a wide card. Show the whole thing.
+        <div className="mt-3 flex justify-center bg-slate-100">
+          <img
+            src={post.image_url}
+            alt=""
+            loading="lazy"
+            className="max-h-[26rem] w-auto max-w-full object-contain"
+          />
+        </div>
       ) : null}
 
       <div className="flex flex-wrap items-center gap-2 px-4 py-3">

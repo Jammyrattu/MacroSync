@@ -99,12 +99,18 @@ export function CheckinFeedCard({
       ) : null}
 
       {checkin.photo_url ? (
-        <img
-          src={checkin.photo_url}
-          alt=""
-          loading="lazy"
-          className="mt-3 max-h-96 w-full object-cover"
-        />
+        // object-contain, not cover: proof photos come off phones in portrait,
+        // and filling a wide desktop card with cover crops the top and bottom
+        // off exactly the part being shown. The tinted backdrop absorbs the
+        // letterboxing instead.
+        <div className="mt-3 flex justify-center bg-slate-100">
+          <img
+            src={checkin.photo_url}
+            alt=""
+            loading="lazy"
+            className="max-h-[26rem] w-auto max-w-full object-contain"
+          />
+        </div>
       ) : null}
 
       <div className="flex items-center gap-2 px-4 py-3">
