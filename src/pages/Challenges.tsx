@@ -42,7 +42,9 @@ export function Challenges() {
         <div>
           <h1 className="text-xl font-bold tracking-tight text-slate-900">Challenges</h1>
           <p className="text-sm text-slate-500">
-            Compete with other members. No stakes, no money — just who shows up.
+            Welcome to Challenges! Create custom goals, invite your friends, and hold each other
+            accountable. From hitting your daily macros to simply getting yourself to the gym,
+            achieve more together.
           </p>
         </div>
         <button type="button" onClick={() => setCreating(true)} className="btn-primary shrink-0">
