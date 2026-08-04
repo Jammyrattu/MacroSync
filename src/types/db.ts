@@ -264,6 +264,11 @@ export interface ChallengeParticipant {
   invited_by: string | null
   responded_at: string | null
   scored_at: string | null
+  /**
+   * Monday of the first fully-elapsed week this member missed the bar in.
+   * Null means still in the running.
+   */
+  eliminated_week: string | null
   created_at: string
 }
 

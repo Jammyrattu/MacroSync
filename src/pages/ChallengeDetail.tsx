@@ -4,18 +4,17 @@ import { useAuth } from '@/hooks/useAuth'
 import { useChallengeDetail } from '@/hooks/useChallengeDetail'
 import { todayKey, formatShortDate } from '@/lib/dates'
 import {
-  SCORE_UNIT,
   VERIFICATION_BY_ID,
   challengePhase,
   durationLabel,
   maxPossibleSoFar,
 } from '@/lib/challenges'
-import { Avatar } from '@/components/ui/Avatar'
 import { Alert } from '@/components/ui/Alert'
 import { Spinner } from '@/components/ui/Spinner'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { ChevronLeftIcon, CommentIcon, PlusIcon } from '@/components/ui/icons'
 import { ChallengeLogo } from '@/components/challenges/ChallengeLogo'
+import { Leaderboard } from '@/components/challenges/Leaderboard'
 import { CheckInBox } from '@/components/challenges/CheckInBox'
 import { CheckinFeedCard } from '@/components/challenges/CheckinFeedCard'
 import { InviteMoreModal } from '@/components/challenges/InviteMoreModal'
@@ -74,6 +73,7 @@ export function ChallengeDetail() {
   const roster = players.filter((p) => p.status === 'accepted')
   const pendingCount = players.filter((p) => p.status === 'pending').length
   const joined = me?.status === 'accepted'
+  const eliminated = Boolean(me?.eliminated_week)
   const isOwner = challenge.owner_id === user?.id
   const checkedInToday = feed.some((c) => c.user_id === user?.id && c.on_date === today)
 
@@ -173,53 +173,21 @@ export function ChallengeDetail() {
           everyone else is the first thing you want after knowing the rules. */}
       <section className="card p-5">
         <h2 className="font-semibold text-slate-900">Leaderboard</h2>
-        <div className="mt-3 space-y-2">
-          {roster.length === 0 ? (
-            <p className="text-sm text-slate-500">Nobody has accepted yet.</p>
-          ) : (
-            roster.map((player, index) => {
-              const isMe = player.user_id === user?.id
-              const score = Number(player.score)
-              return (
-                <div key={player.id} className="flex items-center gap-2.5">
-                  <span className="w-4 shrink-0 text-xs font-semibold text-slate-400 tabular-nums">
-                    {index + 1}
-                  </span>
-                  <Link to={`/u/${player.user_id}`} className="shrink-0">
-                    <Avatar
-                      url={player.profiles?.avatar_url}
-                      name={player.profiles?.display_name}
-                      size={28}
-                    />
-                  </Link>
-                  <div className="min-w-0 flex-1">
-                    <p className="flex items-baseline gap-1.5 text-sm">
-                      <span
-                        className={`truncate ${isMe ? 'font-semibold text-slate-900' : 'text-slate-700'}`}
-                      >
-                        {player.profiles?.display_name ?? 'Anonymous'}
-                      </span>
-                      {isMe ? <span className="text-[11px] text-slate-400">you</span> : null}
-                    </p>
-                    <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100">
-                      <div
-                        className={`h-full rounded-full ${isMe ? 'bg-brand-500' : 'bg-slate-300'}`}
-                        style={{ width: `${Math.min((score / ceiling) * 100, 100)}%` }}
-                      />
-                    </div>
-                  </div>
-                  <span className="shrink-0 text-sm font-semibold text-slate-900 tabular-nums">
-                    {score}
-                    <span className="ml-1 text-xs font-normal text-slate-400">{SCORE_UNIT}</span>
-                  </span>
-                </div>
-              )
-            })
-          )}
+        <div className="mt-3">
+          <Leaderboard players={roster} ceiling={ceiling} />
         </div>
       </section>
 
-      {joined && phase === 'active' ? (
+      {joined && phase === 'active' && eliminated ? (
+        <section className="card border-red-200 bg-red-50/50 p-5 text-center">
+          <p className="text-sm font-bold tracking-wide text-red-600 uppercase">Eliminated</p>
+          <p className="mt-1 text-sm text-slate-600">
+            You missed the {challenge.min_checkins_per_week}-a-week target in the week beginning{' '}
+            {formatShortDate(me!.eliminated_week!)}, so you can no longer check in. You can still
+            follow the challenge and comment on everyone else's check-ins.
+          </p>
+        </section>
+      ) : joined && phase === 'active' ? (
         <CheckInBox
           challenge={challenge}
           alreadyCheckedIn={checkedInToday}

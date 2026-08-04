@@ -11,6 +11,7 @@ import {
 import type { ChallengeWithPlayers } from '@/hooks/useChallenges'
 import { Avatar } from '@/components/ui/Avatar'
 import { ChevronDownIcon } from '@/components/ui/icons'
+import { sortPlayers } from '@/lib/leaderboard'
 import { ChallengeLogo } from './ChallengeLogo'
 
 const PHASE_LABEL = {
@@ -38,8 +39,11 @@ export function ChallengeCard({
   const verification = VERIFICATION_BY_ID[challenge.verification]
 
   const roster = challenge.players.filter((p) => p.status === 'accepted')
+  // Eliminated players sink to the bottom, so someone who was winning when
+  // they dropped out doesn't keep the top row.
+  const ordered = sortPlayers(roster)
   const pending = challenge.players.filter((p) => p.status === 'pending').length
-  const leader = roster[0]
+  const leader = ordered[0]
   const isPendingForMe = challenge.me?.status === 'pending'
 
   // Denominator for the bars: the most anyone could have scored by today.
@@ -99,14 +103,18 @@ export function ChallengeCard({
             {roster.length === 0 ? (
               <p className="pb-2 text-sm text-slate-500">Nobody has accepted yet.</p>
             ) : (
-              (expanded ? roster : roster.slice(0, 3)).map((player, index) => {
+              (expanded ? ordered : ordered.slice(0, 3)).map((player, index) => {
                 const isMe = player.user_id === user?.id
+                const out = player.eliminated_week !== null
                 const score = Number(player.score)
 
                 return (
-                  <div key={player.id} className="flex items-center gap-2.5">
+                  <div
+                    key={player.id}
+                    className={`flex items-center gap-2.5 ${out ? 'opacity-60' : ''}`}
+                  >
                     <span className="w-4 shrink-0 text-xs font-semibold text-slate-400 tabular-nums">
-                      {index + 1}
+                      {out ? '—' : index + 1}
                     </span>
                     <Link to={`/u/${player.user_id}`} className="shrink-0">
                       <Avatar
@@ -117,13 +125,18 @@ export function ChallengeCard({
                     </Link>
 
                     <div className="min-w-0 flex-1">
-                      <p className="flex items-baseline gap-1.5 text-sm">
+                      <p className="flex flex-wrap items-baseline gap-x-1.5 text-sm">
                         <span
                           className={`truncate ${isMe ? 'font-semibold text-slate-900' : 'text-slate-700'}`}
                         >
                           {player.profiles?.display_name ?? 'Anonymous'}
                         </span>
                         {isMe ? <span className="text-[11px] text-slate-400">you</span> : null}
+                        {out ? (
+                          <span className="text-[11px] font-bold tracking-wide text-red-600 uppercase">
+                            (Eliminated)
+                          </span>
+                        ) : null}
                       </p>
                       <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100">
                         <div
