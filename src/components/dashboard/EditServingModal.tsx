@@ -1,12 +1,17 @@
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { scaleNutrients } from '@/lib/nutrition'
-import type { FoodLog } from '@/types/db'
+import { MEALS, MEAL_LABELS } from '@/hooks/useDayLog'
+import type { FoodLog, Meal } from '@/types/db'
 import { Modal } from '@/components/ui/Modal'
 import { Alert } from '@/components/ui/Alert'
 import { NutritionPreview } from '@/components/food/NutritionPreview'
 
-/** Adjust an already-logged item's serving size and quantity. */
+/**
+ * Adjust an already-logged item: which meal it belongs to, its serving size and
+ * its quantity. Changing the meal moves the entry rather than needing it
+ * deleted and logged again.
+ */
 export function EditServingModal({
   log,
   onClose,
@@ -16,6 +21,7 @@ export function EditServingModal({
   onClose: () => void
   onSaved: () => void
 }) {
+  const [meal, setMeal] = useState<Meal>('breakfast')
   const [grams, setGrams] = useState('100')
   const [quantity, setQuantity] = useState('1')
   const [saving, setSaving] = useState(false)
@@ -25,6 +31,7 @@ export function EditServingModal({
   const [seededId, setSeededId] = useState<string | null>(null)
   if (log && log.id !== seededId) {
     setSeededId(log.id)
+    setMeal(log.meal)
     setGrams(String(Number(log.serving_grams)))
     setQuantity(String(Number(log.quantity)))
   }
@@ -51,7 +58,7 @@ export function EditServingModal({
 
     const { error: updateError } = await supabase
       .from('food_logs')
-      .update({ serving_grams: Number(grams), quantity: Number(quantity) })
+      .update({ meal, serving_grams: Number(grams), quantity: Number(quantity) })
       .eq('id', log.id)
 
     setSaving(false)
@@ -70,6 +77,27 @@ export function EditServingModal({
         <div>
           <p className="font-medium text-slate-900">{log.food_name}</p>
           {log.brand ? <p className="text-sm text-slate-500">{log.brand}</p> : null}
+        </div>
+
+        <div>
+          <span className="label">Meal</span>
+          <div className="grid grid-cols-4 gap-2">
+            {MEALS.map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => setMeal(option)}
+                aria-pressed={meal === option}
+                className={`rounded-xl border-2 py-2 text-xs font-semibold transition-colors ${
+                  meal === option
+                    ? 'border-brand-500 bg-brand-50 text-brand-800'
+                    : 'border-slate-200 text-slate-600 hover:border-slate-300'
+                }`}
+              >
+                {MEAL_LABELS[option]}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3">

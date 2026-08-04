@@ -1,8 +1,7 @@
-import { Link } from 'react-router'
 import { MEAL_LABELS } from '@/hooks/useDayLog'
 import type { MealGroup } from '@/hooks/useDayLog'
 import type { FoodLog, FoodNutrients } from '@/types/db'
-import { PencilIcon, PlusIcon, TrashIcon } from '@/components/ui/icons'
+import { PencilIcon, TrashIcon } from '@/components/ui/icons'
 
 /** One meal's card: its items, its calorie subtotal, and per-row actions. */
 export function MealSection({
@@ -18,18 +17,11 @@ export function MealSection({
 }) {
   return (
     <section className="card overflow-hidden">
+      {/* No per-meal "add" control: the food picker sits directly above these
+          cards on the same page, and the log sheet asks which meal anyway. */}
       <header className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
         <h3 className="font-semibold text-slate-900">{MEAL_LABELS[group.meal]}</h3>
-        <div className="flex items-center gap-3">
-          <span className="text-sm font-medium text-slate-500">{group.totals.calories} kcal</span>
-          <Link
-            to={`/add-food?meal=${group.meal}`}
-            className="btn-ghost !p-1.5 text-brand-600"
-            aria-label={`Add food to ${MEAL_LABELS[group.meal]}`}
-          >
-            <PlusIcon className="size-5" />
-          </Link>
-        </div>
+        <span className="text-sm font-medium text-slate-500">{group.totals.calories} kcal</span>
       </header>
 
       {group.items.length === 0 ? (
