@@ -81,21 +81,20 @@ async function sendEmail(to: string[], content: EmailContent): Promise<{ ok: boo
   return { ok: true }
 }
 
-/** Check-ins this Monday-to-date, matching how the weekly bar is counted. */
+/**
+ * Check-ins so far in the CURRENT challenge week.
+ *
+ * Delegated to SQL rather than worked out here: weeks run from the challenge's
+ * own start date, and a second implementation of that arithmetic would be a
+ * second thing to get wrong.
+ */
 async function weekProgress(admin: SupabaseClient, challengeId: string, userId: string) {
-  const now = new Date()
-  const day = (now.getUTCDay() + 6) % 7 // Monday = 0
-  const monday = new Date(now)
-  monday.setUTCDate(now.getUTCDate() - day)
-
-  const { count } = await admin
-    .from('challenge_checkins')
-    .select('id', { count: 'exact', head: true })
-    .eq('challenge_id', challengeId)
-    .eq('user_id', userId)
-    .gte('on_date', monday.toISOString().slice(0, 10))
-
-  return count ?? 0
+  const { data } = await admin.rpc('challenge_week_progress', {
+    p_challenge: challengeId,
+    p_user: userId,
+  })
+  const row = (data as { done?: number }[] | null)?.[0]
+  return row?.done ?? 0
 }
 
 Deno.serve(async (req) => {

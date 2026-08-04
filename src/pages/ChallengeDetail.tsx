@@ -2,10 +2,11 @@ import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { useAuth } from '@/hooks/useAuth'
 import { useChallengeDetail } from '@/hooks/useChallengeDetail'
-import { todayKey, formatShortDate } from '@/lib/dates'
+import { addDays, todayKey, formatShortDate } from '@/lib/dates'
 import {
   VERIFICATION_BY_ID,
   challengePhase,
+  challengeWeekNumber,
   durationLabel,
   maxPossibleSoFar,
 } from '@/lib/challenges'
@@ -182,9 +183,12 @@ export function ChallengeDetail() {
         <section className="card border-red-200 bg-red-50/50 p-5 text-center">
           <p className="text-sm font-bold tracking-wide text-red-600 uppercase">Eliminated</p>
           <p className="mt-1 text-sm text-slate-600">
-            You missed the {challenge.min_checkins_per_week}-a-week target in the week beginning{' '}
-            {formatShortDate(me!.eliminated_week!)}, so you can no longer check in. You can still
-            follow the challenge and comment on everyone else's check-ins.
+            You missed the {challenge.min_checkins_per_week}-a-week target in week{' '}
+            {challengeWeekNumber(challenge.starts_on, me!.eliminated_week!)} (
+            {formatShortDate(me!.eliminated_week!)}
+            {' – '}
+            {formatShortDate(addDays(me!.eliminated_week!, 6))}), so you can no longer check in. You
+            can still follow the challenge and comment on everyone else's check-ins.
           </p>
         </section>
       ) : joined && phase === 'active' ? (

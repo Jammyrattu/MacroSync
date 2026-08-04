@@ -85,6 +85,19 @@ export function challengeDays(startsOn: string, endsOn: string): number {
 }
 
 /**
+ * Which week of the challenge a date falls in, counting from 1.
+ *
+ * Weeks run from the challenge's own start date, not from Monday — a challenge
+ * beginning on a Thursday has its week 1 run Thursday to Wednesday.
+ */
+export function challengeWeekNumber(startsOn: string, on: string): number {
+  const days = Math.round(
+    (Date.parse(`${on}T00:00:00`) - Date.parse(`${startsOn}T00:00:00`)) / 86_400_000,
+  )
+  return Math.floor(days / 7) + 1
+}
+
+/**
  * "2 weeks" where it divides cleanly, otherwise the day count. Challenges are
  * created in whole weeks, so the day form is only for anything hand-edited.
  */
