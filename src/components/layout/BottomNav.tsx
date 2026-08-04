@@ -5,8 +5,15 @@ import { NAV_ITEMS } from './navItems'
 export function BottomNav() {
   return (
     <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 backdrop-blur md:hidden">
-      {/* pb keeps the tabs clear of the iOS home indicator. */}
-      <div className="mx-auto grid max-w-lg grid-cols-6 pb-[env(safe-area-inset-bottom)]">
+      {/* pb keeps the tabs clear of the iOS home indicator.
+
+          Column count is derived, not written down: a hard-coded grid-cols-6
+          left an empty sixth column when the nav dropped to five items, which
+          shunted the whole bar off-centre. */}
+      <div
+        className="mx-auto grid max-w-lg pb-[env(safe-area-inset-bottom)]"
+        style={{ gridTemplateColumns: `repeat(${NAV_ITEMS.length}, minmax(0, 1fr))` }}
+      >
         {NAV_ITEMS.map(({ to, label, Icon, end }) => (
           <NavLink
             key={to}

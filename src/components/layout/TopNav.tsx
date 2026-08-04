@@ -11,11 +11,16 @@ export function TopNav() {
   return (
     <header className="sticky top-0 z-30 hidden border-b border-slate-200 bg-white/90 backdrop-blur md:block">
       <div className="mx-auto flex h-16 max-w-6xl items-center gap-6 px-6">
-        <Link to="/" aria-label="MacroSync home">
-          <Logo />
-        </Link>
+        {/* Logo and avatar each take an equal share of the leftover width, so
+            the nav sits in the true centre of the header. Putting flex-1 on the
+            nav itself only pushed it up against the logo. */}
+        <div className="flex flex-1 items-center">
+          <Link to="/" aria-label="MacroSync home">
+            <Logo />
+          </Link>
+        </div>
 
-        <nav className="flex flex-1 items-center gap-1">
+        <nav className="flex items-center gap-1">
           {NAV_ITEMS.map(({ to, label, Icon, end }) => (
             <NavLink
               key={to}
@@ -37,13 +42,19 @@ export function TopNav() {
 
         {/* Settings already has its own nav item, so the avatar goes where the
             label says it does: the public profile. */}
-        <Link
-          to={user ? `/u/${user.id}` : '/settings'}
-          className="shrink-0"
-          aria-label="Your profile"
-        >
-          <Avatar url={profile?.avatar_url} name={profile?.display_name ?? user?.email} size={36} />
-        </Link>
+        <div className="flex flex-1 items-center justify-end">
+          <Link
+            to={user ? `/u/${user.id}` : '/settings'}
+            className="shrink-0"
+            aria-label="Your profile"
+          >
+            <Avatar
+              url={profile?.avatar_url}
+              name={profile?.display_name ?? user?.email}
+              size={36}
+            />
+          </Link>
+        </div>
       </div>
     </header>
   )
