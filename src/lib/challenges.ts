@@ -39,8 +39,16 @@ export const VERIFICATION_METHODS: VerificationDefinition[] = [
 /** Days a week a participant is expected to check in. */
 export const MIN_CHECKIN_OPTIONS = [2, 3, 4, 5, 6, 7] as const
 
-/** How soon it starts. Never today — everyone gets a chance to accept first. */
+/**
+ * How soon it starts.
+ *
+ * Today is offered but isn't the default: starting immediately closes the
+ * roster the moment the challenge exists, so nobody can be invited afterwards.
+ * People already invited can still accept — that's an update to their own row,
+ * not a new one — so a same-day challenge works, it just can't grow.
+ */
 export const START_OFFSETS = [
+  { days: 0, label: 'Today' },
   { days: 1, label: 'Tomorrow' },
   { days: 2, label: 'In 2 days' },
   { days: 3, label: 'In 3 days' },

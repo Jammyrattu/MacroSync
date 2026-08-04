@@ -247,8 +247,10 @@ export function CreateChallengeModal({
         </div>
 
         <p className="-mt-1 text-xs text-slate-500">
-          Runs {formatShortDate(startsOn)} – {formatShortDate(endsOn)}. Nobody can be added once it
-          starts.
+          Runs {formatShortDate(startsOn)} – {formatShortDate(endsOn)}.{' '}
+          {startInDays === 0
+            ? 'Starting today means the roster closes straight away — anyone you invite can still accept, but nobody else can be added.'
+            : 'Nobody can be added once it starts.'}
         </p>
 
         <div>
