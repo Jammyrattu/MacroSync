@@ -5,7 +5,8 @@ import { uploadImage } from '@/lib/storage'
 import { todayKey, formatDateLabel } from '@/lib/dates'
 import type { Challenge } from '@/types/db'
 import { Alert } from '@/components/ui/Alert'
-import { CheckIcon, ImageIcon, XIcon } from '@/components/ui/icons'
+import { CameraCapture } from '@/components/ui/CameraCapture'
+import { CameraIcon, CheckIcon, ImageIcon, XIcon } from '@/components/ui/icons'
 
 /**
  * Today's check-in.
@@ -29,6 +30,7 @@ export function CheckInBox({
   const [preview, setPreview] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [cameraOpen, setCameraOpen] = useState(false)
 
   const photoRequired = challenge.verification === 'photo'
 
@@ -135,21 +137,51 @@ export function CheckInBox({
             </button>
           </div>
         ) : (
-          <label
-            className={`flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed py-6 ${
-              photoRequired
-                ? 'border-rose-200 text-rose-500 hover:border-rose-300'
-                : 'border-slate-300 text-slate-500 hover:border-brand-400'
+          <div
+            className={`rounded-xl border-2 border-dashed p-4 ${
+              photoRequired ? 'border-rose-200' : 'border-slate-300'
             }`}
           >
-            <ImageIcon className="size-7" />
-            <span className="text-sm font-medium">
-              {photoRequired ? 'Add your proof photo' : 'Add a photo'}
-            </span>
-            <input type="file" accept="image/*" onChange={handleFile} className="sr-only" />
-          </label>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => setCameraOpen(true)}
+                className="btn-secondary w-full"
+              >
+                <CameraIcon className="size-4" />
+                Take a photo
+              </button>
+
+              <label className="btn-secondary w-full cursor-pointer">
+                <ImageIcon className="size-4" />
+                Choose a photo
+                <input type="file" accept="image/*" onChange={handleFile} className="sr-only" />
+              </label>
+            </div>
+            <p
+              className={`mt-2 text-center text-xs ${
+                photoRequired ? 'text-rose-500' : 'text-slate-400'
+              }`}
+            >
+              {photoRequired
+                ? 'This challenge needs proof — take one now or pick one you already have.'
+                : 'Optional.'}
+            </p>
+          </div>
         )}
       </div>
+
+      <CameraCapture
+        open={cameraOpen}
+        onClose={() => setCameraOpen(false)}
+        onCapture={(taken) => {
+          setFile(taken)
+          setPreview((old) => {
+            if (old) URL.revokeObjectURL(old)
+            return URL.createObjectURL(taken)
+          })
+        }}
+      />
 
       <Alert tone="error">{error}</Alert>
 

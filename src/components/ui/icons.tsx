@@ -65,6 +65,13 @@ export const MoonIcon = (p: IconProps) => (
   </Icon>
 )
 
+export const CameraIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M4 8.5h2.6l1.3-2h8.2l1.3 2H20a1 1 0 0 1 1 1V18a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5a1 1 0 0 1 1-1Z" />
+    <circle cx="12" cy="13.2" r="3.2" />
+  </Icon>
+)
+
 export const TrophyIcon = (p: IconProps) => (
   <Icon {...p}>
     <path d="M7 4h10v5a5 5 0 0 1-10 0V4Z" />

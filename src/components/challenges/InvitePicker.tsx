@@ -15,9 +15,13 @@ import { SearchIcon, XIcon } from '@/components/ui/icons'
 export function InvitePicker({
   selected,
   onChange,
+  /** Already in the challenge — offering them again would just fail on the
+   *  unique constraint. */
+  excludeIds = [],
 }: {
   selected: Profile[]
   onChange: (next: Profile[]) => void
+  excludeIds?: string[]
 }) {
   const { user } = useAuth()
   const [query, setQuery] = useState('')
@@ -43,7 +47,10 @@ export function InvitePicker({
     void load()
   }, [load])
 
-  const selectedIds = useMemo(() => new Set(selected.map((p) => p.id)), [selected])
+  const selectedIds = useMemo(
+    () => new Set([...selected.map((p) => p.id), ...excludeIds]),
+    [selected, excludeIds],
+  )
 
   const matches = useMemo(() => {
     const q = query.trim().toLowerCase()

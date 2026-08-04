@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { useAuth } from '@/hooks/useAuth'
 import { useChallengeDetail } from '@/hooks/useChallengeDetail'
@@ -13,10 +14,11 @@ import { Avatar } from '@/components/ui/Avatar'
 import { Alert } from '@/components/ui/Alert'
 import { Spinner } from '@/components/ui/Spinner'
 import { EmptyState } from '@/components/ui/EmptyState'
-import { ChevronLeftIcon, CommentIcon } from '@/components/ui/icons'
+import { ChevronLeftIcon, CommentIcon, PlusIcon } from '@/components/ui/icons'
 import { ChallengeLogo } from '@/components/challenges/ChallengeLogo'
 import { CheckInBox } from '@/components/challenges/CheckInBox'
 import { CheckinFeedCard } from '@/components/challenges/CheckinFeedCard'
+import { InviteMoreModal } from '@/components/challenges/InviteMoreModal'
 
 const PHASE_LABEL = {
   upcoming: 'Starts soon',
@@ -41,6 +43,7 @@ export function ChallengeDetail() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const { challenge, players, feed, me, loading, error, refresh } = useChallengeDetail(challengeId)
+  const [inviting, setInviting] = useState(false)
 
   if (loading) {
     return (
@@ -71,6 +74,7 @@ export function ChallengeDetail() {
   const roster = players.filter((p) => p.status === 'accepted')
   const pendingCount = players.filter((p) => p.status === 'pending').length
   const joined = me?.status === 'accepted'
+  const isOwner = challenge.owner_id === user?.id
   const checkedInToday = feed.some((c) => c.user_id === user?.id && c.on_date === today)
 
   const ceiling = Math.max(
@@ -141,6 +145,26 @@ export function ChallengeDetail() {
             }
           />
         </dl>
+
+        {/* The roster closes on the start date, so this only exists before it. */}
+        {isOwner ? (
+          <div className="mt-4 border-t border-slate-100 pt-4">
+            {phase === 'upcoming' ? (
+              <button
+                type="button"
+                onClick={() => setInviting(true)}
+                className="btn-secondary w-full !py-2 text-sm"
+              >
+                <PlusIcon className="size-4" />
+                Invite more people
+              </button>
+            ) : (
+              <p className="text-center text-xs text-slate-400">
+                The roster closed when this started — nobody else can be added.
+              </p>
+            )}
+          </div>
+        ) : null}
       </section>
 
       <Alert tone="error">{error}</Alert>
@@ -235,6 +259,14 @@ export function ChallengeDetail() {
           ))
         )}
       </section>
+
+      <InviteMoreModal
+        open={inviting}
+        onClose={() => setInviting(false)}
+        challenge={challenge}
+        existingUserIds={players.map((p) => p.user_id)}
+        onInvited={() => void refresh()}
+      />
     </div>
   )
 }
