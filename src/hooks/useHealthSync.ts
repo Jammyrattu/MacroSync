@@ -2,6 +2,15 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import type { HealthConnection, HealthMetric } from '@/types/db'
+import { AUTO_SYNC_CHECK_MS, shouldAutoSync } from '@/lib/healthSyncSchedule'
+
+/**
+ * Module scope so every mounted copy of the hook shares them. Settings and
+ * Progress can both be alive during a route change, and without this they'd
+ * each fire their own sync.
+ */
+let autoSyncInFlight = false
+let lastAutoAttemptAt = 0
 
 /** What the last sync did, so a zero-row result can explain itself. */
 export interface SyncResult {
@@ -30,8 +39,12 @@ export interface HealthSyncState {
  *
  * Tokens never appear here — health_tokens is unreadable under RLS, so the
  * client only ever sees connection status and the metrics themselves.
+ *
+ * Syncs itself when the data is more than 30 minutes old: on open, when the tab
+ * is brought back to the front, and on a timer while it stays open. Manual
+ * "Sync now" is unaffected and ignores the staleness check.
  */
-export function useHealthSync(days = 30): HealthSyncState {
+export function useHealthSync(days = 30, autoSync = true): HealthSyncState {
   const { user } = useAuth()
   const [connection, setConnection] = useState<HealthConnection | null>(null)
   const [metrics, setMetrics] = useState<HealthMetric[]>([])
@@ -117,6 +130,45 @@ export function useHealthSync(days = 30): HealthSyncState {
     await refresh()
     setBusy(false)
   }, [days, refresh])
+
+  /**
+   * Keep the figures fresh without being asked.
+   *
+   * Checks once a minute rather than sleeping for thirty, so a tab left open
+   * overnight or woken from sleep settles up promptly instead of waiting out
+   * the remainder of a timer that was suspended with it.
+   */
+  useEffect(() => {
+    if (!autoSync || !connection || needsConfig) return
+
+    const maybeSync = () => {
+      const now = Date.now()
+
+      const go = shouldAutoSync({
+        lastSyncedAt: connection.last_synced_at,
+        lastAttemptAt: lastAutoAttemptAt,
+        now,
+        hidden: document.hidden,
+        inFlight: autoSyncInFlight,
+      })
+      if (!go) return
+
+      lastAutoAttemptAt = now
+      autoSyncInFlight = true
+      void sync().finally(() => {
+        autoSyncInFlight = false
+      })
+    }
+
+    maybeSync()
+    const id = window.setInterval(maybeSync, AUTO_SYNC_CHECK_MS)
+    document.addEventListener('visibilitychange', maybeSync)
+
+    return () => {
+      window.clearInterval(id)
+      document.removeEventListener('visibilitychange', maybeSync)
+    }
+  }, [autoSync, connection, needsConfig, sync])
 
   const disconnect = useCallback(
     async (deleteData: boolean) => {

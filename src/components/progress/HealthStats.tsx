@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import type { HealthConnection, HealthMetric, NutritionProfile } from '@/types/db'
 import type { SyncResult } from '@/hooks/useHealthSync'
-import { addDays } from '@/lib/dates'
+import { addDays, formatRelativeTime } from '@/lib/dates'
 import { HISTORY_DAYS, formatMinutes } from '@/lib/progressViz'
 import { StatTile, type StatTileData } from './StatTile'
 import { MetricTrendChart, type TrendPoint } from './MetricTrendChart'
@@ -104,6 +104,7 @@ export function HealthStats({
   onSync: () => void
 }) {
   const [selected, setSelected] = useState<string>('steps')
+  const lastSyncedAt = connection?.last_synced_at ?? null
 
   // The window the tiles and chart share: 30 days ending on the selected date.
   const windowDates = useMemo(
@@ -191,7 +192,13 @@ export function HealthStats({
   return (
     <section className="card p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="font-semibold text-slate-900">Google Health</h2>
+        <div className="min-w-0">
+          <h2 className="font-semibold text-slate-900">Google Health</h2>
+          <p className="text-xs text-slate-400">
+            {lastSyncedAt ? `Synced ${formatRelativeTime(lastSyncedAt)} · ` : ''}
+            auto-syncs every 30 minutes
+          </p>
+        </div>
         <button
           type="button"
           disabled={busy}

@@ -37,6 +37,10 @@ export function HealthSyncCard({
               ? `Last synced ${formatRelativeTime(connection.last_synced_at)}.`
               : 'Not synced yet — run a sync to pull your data in.'}
           </p>
+          <p className="mt-1.5 text-xs text-brand-700/80">
+            Syncs automatically every 30 minutes while MacroSync is open, and whenever you open it.
+            “Sync now” fetches immediately.
+          </p>
         </div>
 
         {connection.last_sync_error ? (
