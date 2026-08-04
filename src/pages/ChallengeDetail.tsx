@@ -175,7 +175,7 @@ export function ChallengeDetail() {
       <section className="card p-5">
         <h2 className="font-semibold text-slate-900">Leaderboard</h2>
         <div className="mt-3">
-          <Leaderboard players={roster} ceiling={ceiling} />
+          <Leaderboard players={roster} ceiling={ceiling} ownerId={challenge.owner_id} />
         </div>
       </section>
 

@@ -132,6 +132,9 @@ export function ChallengeCard({
                           {player.profiles?.display_name ?? 'Anonymous'}
                         </span>
                         {isMe ? <span className="text-[11px] text-slate-400">you</span> : null}
+                        {player.user_id === challenge.owner_id ? (
+                          <span className="text-[11px] font-semibold text-slate-500">(Owner)</span>
+                        ) : null}
                         {out ? (
                           <span className="text-[11px] font-bold tracking-wide text-red-600 uppercase">
                             (Eliminated)

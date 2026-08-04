@@ -6,7 +6,16 @@ import type { Player } from '@/hooks/useChallenges'
 import { Avatar } from '@/components/ui/Avatar'
 
 /** Standings, with anyone eliminated sunk to the bottom and marked. */
-export function Leaderboard({ players, ceiling }: { players: Player[]; ceiling: number }) {
+export function Leaderboard({
+  players,
+  ceiling,
+  ownerId,
+}: {
+  players: Player[]
+  ceiling: number
+  /** Whoever created the challenge, labelled on the board. */
+  ownerId: string
+}) {
   const { user } = useAuth()
   const ordered = sortPlayers(players)
 
@@ -43,6 +52,9 @@ export function Leaderboard({ players, ceiling }: { players: Player[]; ceiling: 
                   {player.profiles?.display_name ?? 'Anonymous'}
                 </span>
                 {isMe ? <span className="text-[11px] text-slate-400">you</span> : null}
+                {player.user_id === ownerId ? (
+                  <span className="text-[11px] font-semibold text-slate-500">(Owner)</span>
+                ) : null}
                 {out ? (
                   <span className="text-[11px] font-bold tracking-wide text-red-600 uppercase">
                     (Eliminated)
