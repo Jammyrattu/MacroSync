@@ -2,11 +2,13 @@ import { useState } from 'react'
 import { Tabs } from '@/components/ui/Tabs'
 import { AdminUsersTab } from '@/components/admin/AdminUsersTab'
 import { AdminRoutinesTab } from '@/components/admin/AdminRoutinesTab'
+import { AdminChallengesTab } from '@/components/admin/AdminChallengesTab'
 import { AdminExercisesTab } from '@/components/admin/AdminExercisesTab'
 
 const TABS = [
   { id: 'users', label: 'Users' },
   { id: 'routines', label: 'Routines' },
+  { id: 'challenges', label: 'Challenges' },
   { id: 'exercises', label: 'Exercises' },
 ] as const
 
@@ -29,6 +31,7 @@ export function Admin() {
 
       {tab === 'users' ? <AdminUsersTab /> : null}
       {tab === 'routines' ? <AdminRoutinesTab /> : null}
+      {tab === 'challenges' ? <AdminChallengesTab /> : null}
       {tab === 'exercises' ? <AdminExercisesTab /> : null}
     </div>
   )
