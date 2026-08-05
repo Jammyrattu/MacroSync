@@ -4,19 +4,16 @@
     { "source": "/privacy", "destination": "/privacy.html" },
     { "source": "/terms", "destination": "/terms.html" },
     {
-      "//": "Everything else is the SPA. The exclusions are real files in public/ or dist/ that MUST be served as themselves — the Android app depends on three of them: .well-known/assetlinks.json is what proves the app owns this domain (served as HTML, the app shows a Chrome URL bar), manifest.webmanifest is what Bubblewrap reads to build the shell, and sw.js has to be JavaScript or registration fails.",
       "source": "/((?!assets/|icons/|\\.well-known/|manifest\\.webmanifest|sw\\.js|offline\\.html|favicon\\.svg|privacy\\.html|terms\\.html).*)",
       "destination": "/index.html"
     }
   ],
   "headers": [
     {
-      "//": "The browser only picks up a new service worker when it re-fetches this file. Vercel caches static assets hard by default, which would delay every future SW change by up to 24h.",
       "source": "/sw.js",
       "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
     },
     {
-      "//": "Digital Asset Links must be application/json or Android's verifier rejects it.",
       "source": "/.well-known/assetlinks.json",
       "headers": [{ "key": "Content-Type", "value": "application/json" }]
     },
