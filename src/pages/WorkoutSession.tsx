@@ -16,6 +16,7 @@ import { ShareWorkoutPrompt } from '@/components/workouts/ShareWorkoutPrompt'
 import { ExerciseDetailModal } from '@/components/workouts/ExerciseDetailModal'
 import { RestTimer, type RestState } from '@/components/workouts/RestTimer'
 import { groupExercises } from '@/lib/supersets'
+import { activeSetKey, sessionSetOrder } from '@/lib/setOrder'
 
 /** Per-set editable state, keyed `${exerciseIndex}-${setIndex}`. */
 interface SetState {
@@ -214,6 +215,36 @@ export function WorkoutSession() {
     }
   }, [workout, sets])
 
+  const setOrder = useMemo(
+    () => (workout ? sessionSetOrder(workout.exercises) : []),
+    [workout],
+  )
+  /** The set to highlight: the first not yet ticked off, in performance order. */
+  const activeKey = useMemo(() => activeSetKey(setOrder, sets), [setOrder, sets])
+
+  /**
+   * Bring the highlighted set into view when it moves.
+   *
+   * Only when it's actually off screen — the highlight usually moves one row
+   * down, which needs no scrolling, and yanking the page while someone is
+   * typing a weight would be worse than not scrolling at all. It matters when
+   * the next set is on a different exercise, which in a superset is every
+   * single time.
+   */
+  const activeRowRef = useRef<HTMLLIElement | null>(null)
+  useEffect(() => {
+    const row = activeRowRef.current
+    if (!row) return
+
+    const { top, bottom } = row.getBoundingClientRect()
+    // The fixed finish bar and the rest timer sit over the bottom of the page,
+    // so "visible" stops well above the viewport edge.
+    const obscuredBelow = 160
+    if (top >= 0 && bottom <= window.innerHeight - obscuredBelow) return
+
+    row.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  }, [activeKey])
+
   /** Stable identity so the ticking child doesn't re-render on every parent pass. */
   const volume = useMemo<WorkVolume>(
     () => ({ completedSets: doneCount, totalVolumeKg: totalVolume, totalReps }),
@@ -344,7 +375,13 @@ export function WorkoutSession() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-2xl space-y-4 px-4 py-4 pb-28">
+      <main
+        className={`mx-auto max-w-2xl space-y-4 px-4 py-4 ${
+          // The rest bar sits above the finish bar; without the extra room the
+          // last set of a routine hides behind it.
+          rest ? 'pb-44' : 'pb-28'
+        }`}
+      >
         <Alert tone="error">{error}</Alert>
 
         {/* Pre-filled numbers should never be mistaken for something you
@@ -392,14 +429,26 @@ export function WorkoutSession() {
                 const state = sets[key]
                 if (!state) return null
 
+                const isActive = key === activeKey
+
                 return (
                   <li
                     key={key}
-                    className={`flex items-center gap-3 px-4 py-2.5 transition-colors ${
-                      state.done ? 'bg-brand-50/60' : ''
+                    ref={isActive ? activeRowRef : undefined}
+                    aria-current={isActive ? 'step' : undefined}
+                    className={`flex items-center gap-3 border-l-4 py-2.5 pr-4 pl-3 transition-colors ${
+                      isActive
+                        ? 'border-ocean-500 bg-ocean-50/70'
+                        : state.done
+                          ? 'border-transparent bg-brand-50/60'
+                          : 'border-transparent'
                     }`}
                   >
-                    <span className="w-6 shrink-0 text-sm font-medium text-slate-400">
+                    <span
+                      className={`w-6 shrink-0 text-sm font-medium ${
+                        isActive ? 'text-ocean-700' : 'text-slate-400'
+                      }`}
+                    >
                       {setIndex + 1}
                     </span>
 
@@ -474,7 +523,12 @@ export function WorkoutSession() {
       </main>
 
       {rest ? (
-        <RestTimer rest={rest} onAdjust={adjustRest} onSkip={() => setRest(null)} />
+        <RestTimer
+          rest={rest}
+          onAdjust={adjustRest}
+          onDone={() => setRest(null)}
+          onSkip={() => setRest(null)}
+        />
       ) : null}
 
       {/* Fixed finish bar */}
