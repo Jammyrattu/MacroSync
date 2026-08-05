@@ -10,7 +10,8 @@ import { ExerciseLibrary } from '@/components/workouts/ExerciseLibrary'
 import { RoutineBuilder } from '@/components/workouts/RoutineBuilder'
 import { RoutineCard } from '@/components/workouts/RoutineCard'
 import { WorkoutHistory } from '@/components/workouts/WorkoutHistory'
-import { DumbbellIcon, PlusIcon } from '@/components/ui/icons'
+import { ImportRoutinesModal } from '@/components/workouts/ImportRoutinesModal'
+import { DumbbellIcon, PlusIcon, UploadIcon } from '@/components/ui/icons'
 
 const TABS = [
   { id: 'routines', label: 'Routines' },
@@ -32,6 +33,7 @@ export function Workouts() {
 
   const [builderOpen, setBuilderOpen] = useState(false)
   const [editing, setEditing] = useState<Workout | null>(null)
+  const [importing, setImporting] = useState(false)
 
   const load = useCallback(async () => {
     if (!user) return
@@ -79,10 +81,20 @@ export function Workouts() {
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold tracking-tight text-slate-900">Workouts</h1>
         {tab === 'routines' ? (
-          <button type="button" onClick={() => openBuilder(null)} className="btn-primary !py-2">
-            <PlusIcon className="size-4" />
-            New routine
-          </button>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setImporting(true)}
+              className="btn-secondary !py-2 !px-3"
+            >
+              <UploadIcon className="size-4" />
+              <span className="hidden sm:inline">Import</span>
+            </button>
+            <button type="button" onClick={() => openBuilder(null)} className="btn-primary !py-2">
+              <PlusIcon className="size-4" />
+              New routine
+            </button>
+          </div>
         ) : null}
       </div>
 
@@ -104,10 +116,20 @@ export function Workouts() {
                   title="No routines yet"
                   description="Build one from the exercise library, then start it to track a live session."
                   action={
-                    <button type="button" onClick={() => openBuilder(null)} className="btn-primary">
-                      <PlusIcon className="size-4" />
-                      Create a routine
-                    </button>
+                    <div className="flex flex-wrap justify-center gap-2">
+                      <button type="button" onClick={() => openBuilder(null)} className="btn-primary">
+                        <PlusIcon className="size-4" />
+                        Create a routine
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setImporting(true)}
+                        className="btn-secondary"
+                      >
+                        <UploadIcon className="size-4" />
+                        Import from another app
+                      </button>
+                    </div>
                   }
                 />
               </div>
@@ -129,6 +151,12 @@ export function Workouts() {
           {tab === 'history' && <WorkoutHistory logs={logs} />}
         </>
       )}
+
+      <ImportRoutinesModal
+        open={importing}
+        onClose={() => setImporting(false)}
+        onImported={load}
+      />
 
       <RoutineBuilder
         open={builderOpen}

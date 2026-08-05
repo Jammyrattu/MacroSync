@@ -21,6 +21,11 @@ export function AdminExercisesTab() {
     const { data, error: loadError } = await supabase
       .from('exercises')
       .select('*')
+      // The curated library only. Admins can technically read the exercises
+      // users created for themselves through a CSV import, but this tab is for
+      // curating the shared list — mixing in thousands of private entries
+      // would make it useless, and they aren't anyone's to edit.
+      .is('created_by', null)
       .order('sort_order', { ascending: true })
 
     if (loadError) setError(loadError.message)
