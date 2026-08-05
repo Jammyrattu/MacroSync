@@ -109,6 +109,15 @@ export interface RoutineExercise {
   sets: number
   reps: number
   rest_seconds: number
+  /**
+   * Starting weight per set, in kg, from a CSV import — absent on routines
+   * built in the app.
+   *
+   * Only used until there is a real session to read from: a workout_logs row
+   * always wins, because it is what the user actually lifted here. null in the
+   * array means "the file didn't say for that set", which is not 0.
+   */
+  last_weights?: (number | null)[]
 }
 
 export interface Workout {

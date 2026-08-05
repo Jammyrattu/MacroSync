@@ -22,6 +22,31 @@ export interface LastWeights {
   hasHistory: boolean
 }
 
+/**
+ * The same lookup over the weights an import carried in from another app.
+ *
+ * Same two levels as a real session — the matching set first, then the last
+ * set that had a weight — so adding a set to an imported routine starts from
+ * something rather than from zero. Read only when there is no MacroSync
+ * session yet: what you actually lifted here always beats what you lifted
+ * somewhere else.
+ */
+export function importedWeightFor(
+  weights: (number | null)[] | undefined,
+  setNumber: number,
+): number | null {
+  if (!weights || weights.length === 0) return null
+
+  const exact = weights[setNumber - 1]
+  if (typeof exact === 'number') return exact
+
+  for (let i = weights.length - 1; i >= 0; i--) {
+    const weight = weights[i]
+    if (typeof weight === 'number') return weight
+  }
+  return null
+}
+
 export function buildLastWeights(completedSets: CompletedSet[] | null | undefined): LastWeights {
   const exact = new Map<string, number>()
   /** exercise id -> weight from the highest set number seen. */

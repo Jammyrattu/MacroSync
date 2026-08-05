@@ -56,6 +56,15 @@ export interface ImportedExercise {
   name: string
   sets: number
   reps: number
+  /**
+   * What was lifted on each working set, in set order and in the FILE's unit —
+   * converting happens later, once the unit is known.
+   *
+   * null means the file didn't say for that set, which is not the same as 0:
+   * bodyweight work legitimately logs zero, and treating a gap as zero would
+   * hand out a wrong starting weight rather than no starting weight.
+   */
+  weights: (number | null)[]
 }
 
 export interface ImportedRoutine {
@@ -67,6 +76,16 @@ export interface ImportedRoutine {
   sessionCount: number
 }
 
+/**
+ * kg, lbs, or "the file doesn't say".
+ *
+ * Hevy names the column weight_kg or weight_lbs depending on the account's
+ * setting, so it answers itself. Strong just writes "Weight" and keeps the
+ * unit in its app settings — so that case has to be asked about rather than
+ * assumed, since guessing wrong is a silent 2.2x error on every weight.
+ */
+export type WeightUnit = 'kg' | 'lbs' | 'unknown'
+
 export interface ParsedImport {
   routines: ImportedRoutine[]
   columns: ColumnMap
@@ -74,6 +93,18 @@ export interface ParsedImport {
   skippedRows: number
   /** Every distinct exercise name in the file, for the matching step. */
   exerciseNames: string[]
+  /** What the weight column is in, as far as the file admits. */
+  weightUnit: WeightUnit
+  /** False when there was no weight column at all. */
+  hasWeights: boolean
+}
+
+const LB_TO_KG = 0.45359237
+
+/** One decimal is the resolution the session screen edits in. */
+export function toKilograms(weight: number, unit: WeightUnit): number {
+  if (unit !== 'lbs') return Math.round(weight * 10) / 10
+  return Math.round(weight * LB_TO_KG * 10) / 10
 }
 
 export class ImportError extends Error {}
@@ -116,7 +147,10 @@ export function parseWorkoutCsv(text: string): ParsedImport {
 
   // Group by workout name, then by session. Without a session column every row
   // of a name is one session, which is the right reading of a routine export.
-  const byRoutine = new Map<string, Map<string, { name: string; sets: number[]; order: number }[]>>()
+  const byRoutine = new Map<
+    string,
+    Map<string, { name: string; sets: number[]; weights: (number | null)[]; order: number }[]>
+  >()
   const sessionOrder = new Map<string, string[]>()
   let skippedRows = 0
 
@@ -146,12 +180,17 @@ export function parseWorkoutCsv(text: string): ParsedImport {
     const exercises = sessions.get(sessionKey)!
     let entry = exercises.find((e) => e.name === exerciseName)
     if (!entry) {
-      entry = { name: exerciseName, sets: [], order: exercises.length }
+      entry = { name: exerciseName, sets: [], weights: [], order: exercises.length }
       exercises.push(entry)
     }
 
+    // Commas as decimal separators are normal in European exports.
     const reps = Number((columns.reps ? row[columns.reps] : '').replace(',', '.'))
     entry.sets.push(Number.isFinite(reps) && reps > 0 ? Math.round(reps) : 0)
+
+    const rawWeight = (columns.weight ? row[columns.weight] : '').replace(',', '.').trim()
+    const weight = rawWeight === '' ? NaN : Number(rawWeight)
+    entry.weights.push(Number.isFinite(weight) && weight >= 0 ? weight : null)
   }
 
   const routines: ImportedRoutine[] = []
@@ -173,6 +212,10 @@ export function parseWorkoutCsv(text: string): ParsedImport {
           // 0 means the file had no usable rep count; the builder's default of
           // 10 is a better starting point than a routine that says "0 reps".
           reps: median(e.sets.filter((r) => r > 0)) || 10,
+          // Kept per set rather than averaged: a top set followed by back-off
+          // sets is the normal shape, and flattening it would start every set
+          // at a weight that was only right for one of them.
+          weights: e.weights,
         })),
     })
   }
@@ -185,7 +228,21 @@ export function parseWorkoutCsv(text: string): ParsedImport {
     ...new Set(routines.flatMap((r) => r.exercises.map((e) => e.name))),
   ].sort((a, b) => a.localeCompare(b))
 
-  return { routines, columns, skippedRows, exerciseNames }
+  // Hevy's header names the unit; Strong's doesn't, so 'unknown' means the
+  // import screen has to ask rather than pick.
+  const weightUnit: WeightUnit = !columns.weight
+    ? 'unknown'
+    : columns.weight === 'weight_kg' || columns.weight === 'kg'
+      ? 'kg'
+      : columns.weight === 'weight_lbs' || columns.weight === 'lbs'
+        ? 'lbs'
+        : 'unknown'
+
+  const hasWeights = routines.some((r) =>
+    r.exercises.some((e) => e.weights.some((w) => w !== null)),
+  )
+
+  return { routines, columns, skippedRows, exerciseNames, weightUnit, hasWeights }
 }
 
 /**

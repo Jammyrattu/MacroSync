@@ -15,6 +15,7 @@ import {
   ImportError,
   parseWorkoutCsv,
   summarise,
+  toKilograms,
   type ImportedRoutine,
 } from '@/lib/workoutImport'
 import { Modal } from '@/components/ui/Modal'
@@ -66,6 +67,12 @@ export function ImportRoutinesModal({
   const [saving, setSaving] = useState(false)
   const [result, setResult] = useState<{ routines: number; created: number } | null>(null)
 
+  /** kg or lbs. Taken from the file where it says, asked for where it doesn't. */
+  const [unit, setUnit] = useState<'kg' | 'lbs'>('kg')
+  /** True when the file named its unit, so the choice is shown but not pressed. */
+  const [unitKnown, setUnitKnown] = useState(true)
+  const [hasWeights, setHasWeights] = useState(false)
+
   // Re-seed on each open so a second import doesn't show the first one's state.
   const [wasOpen, setWasOpen] = useState(false)
   if (open && !wasOpen) {
@@ -105,6 +112,11 @@ export function ImportRoutinesModal({
 
     setFileName(file.name)
     setRoutines(parsed.routines)
+    setHasWeights(parsed.hasWeights)
+    setUnitKnown(parsed.weightUnit !== 'unknown')
+    // kg by default when the file is silent: the rest of the app is metric, and
+    // the review screen shows a worked example so a wrong guess is visible.
+    setUnit(parsed.weightUnit === 'lbs' ? 'lbs' : 'kg')
     setDecisions(
       parsed.exerciseNames.map((imported) => {
         const match = matchExercise(imported, candidates)
@@ -210,6 +222,9 @@ export function ImportRoutinesModal({
           .map((exercise): RoutineExercise | null => {
             const resolved = resolve(exercise.name)
             if (!resolved) return null
+            const weights = exercise.weights.map((w) =>
+              w === null ? null : toKilograms(w, unit),
+            )
             return {
               exercise_id: resolved.id,
               name: resolved.name,
@@ -218,6 +233,9 @@ export function ImportRoutinesModal({
               reps: exercise.reps,
               // Not in any export — the builder's default, editable after.
               rest_seconds: 90,
+              // Omitted entirely when the file had nothing, so a routine that
+              // carries no weights looks the same as one built in the app.
+              ...(weights.some((w) => w !== null) ? { last_weights: weights } : {}),
             }
           })
           .filter((e): e is RoutineExercise => e !== null),
@@ -247,6 +265,15 @@ export function ImportRoutinesModal({
       ) : step === 'review' ? (
         <div className="space-y-4">
           <RoutinePreview routines={routines} fileName={fileName} />
+
+          {hasWeights ? (
+            <UnitPicker
+              unit={unit}
+              known={unitKnown}
+              onChange={setUnit}
+              sample={sampleWeight(routines)}
+            />
+          ) : null}
 
           <div>
             <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -306,8 +333,12 @@ export function ImportRoutinesModal({
             </p>
             <p className="mt-1 text-sm text-slate-500">
               {result?.created
-                ? `${result.created} new ${result.created === 1 ? 'exercise was' : 'exercises were'} added to your library. Sets and reps came from your most recent session of each — edit any routine to adjust them.`
-                : 'Everything matched exercises you already had. Edit any routine to adjust sets and reps.'}
+                ? `${result.created} new ${result.created === 1 ? 'exercise was' : 'exercises were'} added to your library. `
+                : 'Everything matched exercises you already had. '}
+              Sets and reps came from your most recent session of each.
+              {hasWeights
+                ? ' Start one and the weights will already be filled in from that session.'
+                : ''}
             </p>
           </div>
           <button type="button" onClick={onClose} className="btn-primary w-full">
@@ -316,6 +347,88 @@ export function ImportRoutinesModal({
         </div>
       )}
     </Modal>
+  )
+}
+
+/** The heaviest weight in the file, which is the clearest one to sanity-check. */
+function sampleWeight(routines: ImportedRoutine[]): { name: string; weight: number } | null {
+  let best: { name: string; weight: number } | null = null
+  for (const routine of routines) {
+    for (const exercise of routine.exercises) {
+      for (const weight of exercise.weights) {
+        if (weight === null || weight <= 0) continue
+        if (!best || weight > best.weight) best = { name: exercise.name, weight }
+      }
+    }
+  }
+  return best
+}
+
+/**
+ * kg or lbs.
+ *
+ * Shown even when the file names its unit, because being told what was read is
+ * how you catch it being wrong. The example is the heaviest lift in the file:
+ * a bench press that reads as 102 kg when it was 102 lb is obvious at a glance
+ * in a way that a units label alone is not.
+ */
+function UnitPicker({
+  unit,
+  known,
+  onChange,
+  sample,
+}: {
+  unit: 'kg' | 'lbs'
+  known: boolean
+  onChange: (unit: 'kg' | 'lbs') => void
+  sample: { name: string; weight: number } | null
+}) {
+  return (
+    <div
+      className={`rounded-xl border p-3 ${
+        known ? 'border-slate-200' : 'border-amber-200 bg-amber-50/60'
+      }`}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-slate-900">Weights are in</p>
+          <p className="text-xs text-slate-500">
+            {known
+              ? 'Read from the file.'
+              : "This file doesn't say, so check it looks right."}
+          </p>
+        </div>
+
+        <div className="flex shrink-0 gap-1 rounded-lg bg-slate-100 p-1" role="radiogroup">
+          {(['kg', 'lbs'] as const).map((option) => (
+            <button
+              key={option}
+              type="button"
+              role="radio"
+              aria-checked={unit === option}
+              onClick={() => onChange(option)}
+              className={`rounded-md px-3 py-1 text-sm font-semibold transition-colors ${
+                unit === option
+                  ? 'bg-surface-raised text-slate-900 shadow-sm'
+                  : 'text-slate-600'
+              }`}
+            >
+              {option}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {sample ? (
+        <p className="mt-2 border-t border-slate-200 pt-2 text-xs text-slate-600">
+          Heaviest in the file: <span className="font-medium">{sample.name}</span> at{' '}
+          {sample.weight} {unit}
+          {unit === 'lbs' ? (
+            <> → stored as {toKilograms(sample.weight, 'lbs')} kg</>
+          ) : null}
+        </p>
+      ) : null}
+    </div>
   )
 }
 
@@ -383,7 +496,8 @@ function PickStep({
         </ul>
         <p className="mt-2">
           Those exports list every set of every session. A routine is built from your most recent
-          session of each workout name, so the sets and reps are what you last actually did.
+          session of each workout name, so the sets, reps and weights are what you last actually
+          lifted — start one and it opens with those weights already in.
         </p>
       </div>
     </div>

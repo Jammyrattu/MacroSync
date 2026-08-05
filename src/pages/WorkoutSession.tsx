@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { IDLE_TIMEOUT_MS, estimateWorkoutCalories, type WorkVolume } from '@/lib/calories'
-import { buildLastWeights } from '@/lib/lastWeights'
+import { buildLastWeights, importedWeightFor } from '@/lib/lastWeights'
 import { formatRelativeTime } from '@/lib/dates'
 import type { CompletedSet, RoutineExercise, Workout } from '@/types/db'
 import type { MuscleGroup } from '@/data/exercises'
@@ -50,6 +50,8 @@ export function WorkoutSession() {
   const [detail, setDetail] = useState<RoutineExercise | null>(null)
   /** performed_at of the session the weights came from, or null if none. */
   const [carriedOverFrom, setCarriedOverFrom] = useState<string | null>(null)
+  /** True when the pre-filled weights came from a CSV import, not a session here. */
+  const [carriedOverFromImport, setCarriedOverFromImport] = useState(false)
 
   /**
    * Session clock. Refs rather than state on purpose: these advance every
@@ -96,6 +98,12 @@ export function WorkoutSession() {
         | null
       const lastWeights = buildLastWeights(previous?.completed_sets)
       setCarriedOverFrom(lastWeights.hasHistory ? (previous?.performed_at ?? null) : null)
+      // Only relevant before the first session here — after that the real log
+      // supersedes it, so the notice would be describing the wrong source.
+      setCarriedOverFromImport(
+        !lastWeights.hasHistory &&
+          (found?.exercises ?? []).some((e) => (e.last_weights?.length ?? 0) > 0),
+      )
 
       if (found) {
         const seeded: Record<string, SetState> = {}
@@ -104,9 +112,12 @@ export function WorkoutSession() {
             seeded[`${exerciseIndex}-${setIndex}`] = {
               done: false,
               reps: exercise.reps,
-              // Start from what was actually lifted last time; 0 only when
-              // this exercise has no history at all.
-              weight: lastWeights.get(exercise.exercise_id, setIndex + 1) ?? 0,
+              // What was actually lifted here last time, then what an import
+              // brought in from another app, then 0.
+              weight:
+                lastWeights.get(exercise.exercise_id, setIndex + 1) ??
+                importedWeightFor(exercise.last_weights, setIndex + 1) ??
+                0,
             }
           }
         })
@@ -305,6 +316,11 @@ export function WorkoutSession() {
           <p className="rounded-xl bg-slate-100 px-3 py-2 text-xs text-slate-600">
             Weights carried over from your last {workout.name} session,{' '}
             {formatRelativeTime(carriedOverFrom)}. Adjust any that have changed.
+          </p>
+        ) : carriedOverFromImport ? (
+          <p className="rounded-xl bg-slate-100 px-3 py-2 text-xs text-slate-600">
+            Weights carried over from the session you imported. Once you finish this one,
+            they&apos;ll come from here instead.
           </p>
         ) : null}
 
