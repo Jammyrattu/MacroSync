@@ -34,6 +34,9 @@ const COLUMNS = {
   reps: ['reps', 'rep_count', 'repetitions'],
   weight: ['weight_kg', 'weight', 'weight_lbs', 'kg', 'lbs'],
   notes: ['exercise_notes', 'notes', 'note'],
+  // Hevy tags superset members with a shared number here; blank for a normal
+  // set. Strong has no equivalent, so those imports just have no supersets.
+  superset: ['superset_id', 'superset'],
 } as const
 
 type Column = keyof typeof COLUMNS
@@ -56,6 +59,12 @@ export interface ImportedExercise {
   name: string
   sets: number
   reps: number
+  /**
+   * The file's own superset tag, or null. Exercises sharing one were done back
+   * to back. Kept as the raw value; it is turned into a real superset_id at
+   * import time so the ids are ours and not the other app's.
+   */
+  supersetTag: string | null
   /**
    * What was lifted on each working set, in set order and in the FILE's unit —
    * converting happens later, once the unit is known.
@@ -149,7 +158,10 @@ export function parseWorkoutCsv(text: string): ParsedImport {
   // of a name is one session, which is the right reading of a routine export.
   const byRoutine = new Map<
     string,
-    Map<string, { name: string; sets: number[]; weights: (number | null)[]; order: number }[]>
+    Map<
+      string,
+      { name: string; sets: number[]; weights: (number | null)[]; supersetTag: string | null; order: number }[]
+    >
   >()
   const sessionOrder = new Map<string, string[]>()
   let skippedRows = 0
@@ -180,7 +192,14 @@ export function parseWorkoutCsv(text: string): ParsedImport {
     const exercises = sessions.get(sessionKey)!
     let entry = exercises.find((e) => e.name === exerciseName)
     if (!entry) {
-      entry = { name: exerciseName, sets: [], weights: [], order: exercises.length }
+      const tag = (columns.superset ? row[columns.superset] : '').trim()
+      entry = {
+        name: exerciseName,
+        sets: [],
+        weights: [],
+        supersetTag: tag === '' ? null : tag,
+        order: exercises.length,
+      }
       exercises.push(entry)
     }
 
@@ -212,6 +231,7 @@ export function parseWorkoutCsv(text: string): ParsedImport {
           // 0 means the file had no usable rep count; the builder's default of
           // 10 is a better starting point than a routine that says "0 reps".
           reps: median(e.sets.filter((r) => r > 0)) || 10,
+          supersetTag: e.supersetTag,
           // Kept per set rather than averaged: a top set followed by back-off
           // sets is the normal shape, and flattening it would start every set
           // at a weight that was only right for one of them.

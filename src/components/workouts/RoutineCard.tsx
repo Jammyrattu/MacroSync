@@ -1,5 +1,6 @@
 import { Link } from 'react-router'
 import type { Workout } from '@/types/db'
+import { supersetLabels } from '@/lib/supersets'
 import { CopyIcon, PencilIcon, PlayIcon, TrashIcon } from '@/components/ui/icons'
 
 /**
@@ -51,11 +52,22 @@ export function RoutineCard({
 
       {workout.exercises.length > 0 ? (
         <ul className="mt-3 space-y-1">
-          {workout.exercises.slice(0, 4).map((item, i) => (
-            <li key={`${item.exercise_id}-${i}`} className="text-xs text-slate-600">
-              {item.name} — {item.sets} × {item.reps}
-            </li>
-          ))}
+          {supersetLabels(workout.exercises)
+            .slice(0, 4)
+            .map(({ item, label, color }, i) => (
+              <li key={`${item.exercise_id}-${i}`} className="text-xs text-slate-600">
+                {label ? (
+                  <span
+                    className="mr-1.5 inline-block rounded px-1 text-[10px] font-bold"
+                    style={{ color: color ?? undefined }}
+                    title={`Superset ${label}`}
+                  >
+                    {label}
+                  </span>
+                ) : null}
+                {item.name} — {item.sets} × {item.reps}
+              </li>
+            ))}
           {workout.exercises.length > 4 ? (
             <li className="text-xs text-slate-400">
               + {workout.exercises.length - 4} more

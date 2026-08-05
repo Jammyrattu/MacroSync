@@ -16,6 +16,7 @@ import {
   parseWorkoutCsv,
   summarise,
   toKilograms,
+  type ImportedExercise,
   type ImportedRoutine,
 } from '@/lib/workoutImport'
 import { Modal } from '@/components/ui/Modal'
@@ -212,34 +213,57 @@ export function ImportRoutinesModal({
         return id ? { id, name: imported, group: guessMuscleGroup(imported) } : null
       }
 
-      // 2. Write the routines.
-      const payload = routines.map((routine) => ({
-        user_id: user.id,
-        name: routine.name,
-        description: `Imported from ${fileName}`,
-        visibility: 'private',
-        exercises: routine.exercises
-          .map((exercise): RoutineExercise | null => {
-            const resolved = resolve(exercise.name)
-            if (!resolved) return null
-            const weights = exercise.weights.map((w) =>
-              w === null ? null : toKilograms(w, unit),
-            )
-            return {
-              exercise_id: resolved.id,
-              name: resolved.name,
-              muscle_group: resolved.group,
-              sets: exercise.sets,
-              reps: exercise.reps,
-              // Not in any export — the builder's default, editable after.
-              rest_seconds: 90,
-              // Omitted entirely when the file had nothing, so a routine that
-              // carries no weights looks the same as one built in the app.
-              ...(weights.some((w) => w !== null) ? { last_weights: weights } : {}),
-            }
-          })
-          .filter((e): e is RoutineExercise => e !== null),
-      }))
+      // 2. Write the routines. Superset tags are per routine — Hevy numbers
+      //    them from 0 within each workout, so reusing the raw tag across
+      //    routines would fuse unrelated groups into one.
+      const payload = routines.map((routine) => {
+        const supersetIds = new Map<string, string>()
+        for (const exercise of routine.exercises) {
+          const tag = exercise.supersetTag
+          if (tag && !supersetIds.has(tag)) supersetIds.set(tag, crypto.randomUUID())
+        }
+        // A tag used by only one exercise isn't a superset.
+        const tagCounts = new Map<string, number>()
+        for (const exercise of routine.exercises) {
+          if (exercise.supersetTag) {
+            tagCounts.set(exercise.supersetTag, (tagCounts.get(exercise.supersetTag) ?? 0) + 1)
+          }
+        }
+
+        return {
+          user_id: user.id,
+          name: routine.name,
+          description: `Imported from ${fileName}`,
+          visibility: 'private',
+          exercises: routine.exercises
+            .map((exercise): RoutineExercise | null => {
+              const resolved = resolve(exercise.name)
+              if (!resolved) return null
+              const weights = exercise.weights.map((w) =>
+                w === null ? null : toKilograms(w, unit),
+              )
+              const tag = exercise.supersetTag
+              const inSuperset = tag !== null && (tagCounts.get(tag) ?? 0) > 1
+              return {
+                exercise_id: resolved.id,
+                name: resolved.name,
+                muscle_group: resolved.group,
+                sets: exercise.sets,
+                reps: exercise.reps,
+                // Not in any export — the builder's default, editable after.
+                // Superset members get 0, because the whole point of a superset
+                // is that you go straight on to the next exercise; the rest
+                // belongs after the last one in the round.
+                rest_seconds: inSuperset && !isLastInSuperset(routine.exercises, exercise) ? 0 : 90,
+                ...(inSuperset ? { superset_id: supersetIds.get(tag!) } : {}),
+                // Omitted entirely when the file had nothing, so a routine that
+                // carries no weights looks the same as one built in the app.
+                ...(weights.some((w) => w !== null) ? { last_weights: weights } : {}),
+              }
+            })
+            .filter((e): e is RoutineExercise => e !== null),
+        }
+      })
 
       const { error: routineError } = await supabase.from('workouts').insert(payload)
       if (routineError) throw new Error(routineError.message)
@@ -348,6 +372,17 @@ export function ImportRoutinesModal({
       )}
     </Modal>
   )
+}
+
+/**
+ * True for the last member of its superset, which is the one the round's rest
+ * belongs after — everyone before it goes straight on to the next exercise.
+ */
+function isLastInSuperset(exercises: ImportedExercise[], exercise: ImportedExercise): boolean {
+  const tag = exercise.supersetTag
+  if (tag === null) return true
+  const members = exercises.filter((e) => e.supersetTag === tag)
+  return members[members.length - 1] === exercise
 }
 
 /** The heaviest weight in the file, which is the clearest one to sanity-check. */

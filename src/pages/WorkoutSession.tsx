@@ -14,6 +14,8 @@ import { CheckIcon, XIcon } from '@/components/ui/icons'
 import { LiveWorkoutStats } from '@/components/workouts/LiveWorkoutStats'
 import { ShareWorkoutPrompt } from '@/components/workouts/ShareWorkoutPrompt'
 import { ExerciseDetailModal } from '@/components/workouts/ExerciseDetailModal'
+import { RestTimer, type RestState } from '@/components/workouts/RestTimer'
+import { groupExercises } from '@/lib/supersets'
 
 /** Per-set editable state, keyed `${exerciseIndex}-${setIndex}`. */
 interface SetState {
@@ -52,6 +54,8 @@ export function WorkoutSession() {
   const [carriedOverFrom, setCarriedOverFrom] = useState<string | null>(null)
   /** True when the pre-filled weights came from a CSV import, not a session here. */
   const [carriedOverFromImport, setCarriedOverFromImport] = useState(false)
+  /** The running rest countdown, or null when nothing is resting. */
+  const [rest, setRest] = useState<RestState | null>(null)
 
   /**
    * Session clock. Refs rather than state on purpose: these advance every
@@ -142,6 +146,39 @@ export function WorkoutSession() {
     // active-time accumulator running through a rest period.
     lastActivityAt.current = Date.now()
     setSets((current) => ({ ...current, [key]: { ...current[key], ...patch } }))
+  }, [])
+
+  /**
+   * Ticking a set off starts its exercise's rest. Un-ticking one doesn't —
+   * that is someone fixing a mis-tap, and starting a countdown for it would be
+   * both wrong and hard to get rid of.
+   */
+  const completeSet = useCallback(
+    (key: string, exercise: RoutineExercise, wasDone: boolean) => {
+      updateSet(key, { done: !wasDone })
+      if (wasDone) return
+      if (!exercise.rest_seconds || exercise.rest_seconds <= 0) return
+      setRest({
+        endsAt: Date.now() + exercise.rest_seconds * 1000,
+        totalSeconds: exercise.rest_seconds,
+        exerciseName: exercise.name,
+      })
+    },
+    [updateSet],
+  )
+
+  const adjustRest = useCallback((deltaSeconds: number) => {
+    setRest((current) => {
+      if (!current) return current
+      // Never below now: a negative deadline would render a growing count-up.
+      const endsAt = Math.max(Date.now(), current.endsAt + deltaSeconds * 1000)
+      return {
+        ...current,
+        endsAt,
+        // Grow the denominator with the deadline so the bar can't overfill.
+        totalSeconds: Math.max(current.totalSeconds, Math.ceil((endsAt - Date.now()) / 1000)),
+      }
+    })
   }, [])
 
   const { completedSets, totalVolume, totalReps, doneCount, totalCount } = useMemo(() => {
@@ -324,8 +361,16 @@ export function WorkoutSession() {
           </p>
         ) : null}
 
-        {workout.exercises.map((exercise, exerciseIndex) => (
-          <section key={`${exercise.exercise_id}-${exerciseIndex}`} className="card overflow-hidden">
+        {groupExercises(workout.exercises).map((block) => {
+          const cards = block.items.map(({ exercise, index: exerciseIndex }) => (
+            <section
+              key={`${exercise.exercise_id}-${exerciseIndex}`}
+              className={
+                block.supersetId
+                  ? 'overflow-hidden border-t border-slate-100 first:border-t-0'
+                  : 'card overflow-hidden'
+              }
+            >
             <header className="border-b border-slate-100 px-4 py-3">
               <button
                 type="button"
@@ -334,7 +379,9 @@ export function WorkoutSession() {
               >
                 <h2 className="font-semibold text-slate-900">{exercise.name}</h2>
                 <p className="text-xs text-slate-500">
-                  {exercise.sets} × {exercise.reps} · {exercise.rest_seconds}s rest · How to
+                  {exercise.sets} × {exercise.reps} ·{' '}
+                  {exercise.rest_seconds > 0 ? `${exercise.rest_seconds}s rest` : 'no rest'} · How
+                  to
                 </p>
               </button>
             </header>
@@ -385,7 +432,7 @@ export function WorkoutSession() {
 
                     <button
                       type="button"
-                      onClick={() => updateSet(key, { done: !state.done })}
+                      onClick={() => completeSet(key, exercise, state.done)}
                       aria-pressed={state.done}
                       aria-label={`Mark set ${setIndex + 1} complete`}
                       className={`flex size-9 shrink-0 items-center justify-center rounded-xl border-2 transition-colors ${
@@ -401,8 +448,34 @@ export function WorkoutSession() {
               })}
             </ul>
           </section>
-        ))}
+          ))
+
+          if (!block.supersetId) return cards
+
+          return (
+            <div
+              key={block.supersetId}
+              className="card overflow-hidden border-l-4"
+              style={{ borderLeftColor: block.color ?? undefined }}
+            >
+              <p
+                className="px-4 pt-3 text-xs font-bold tracking-wide uppercase"
+                style={{ color: block.color ?? undefined }}
+              >
+                Superset {block.label}
+                <span className="ml-2 font-medium text-slate-400 normal-case">
+                  one set of each, back to back
+                </span>
+              </p>
+              {cards}
+            </div>
+          )
+        })}
       </main>
+
+      {rest ? (
+        <RestTimer rest={rest} onAdjust={adjustRest} onSkip={() => setRest(null)} />
+      ) : null}
 
       {/* Fixed finish bar */}
       <div className="fixed inset-x-0 bottom-0 border-t border-slate-200 bg-surface p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">

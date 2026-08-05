@@ -108,7 +108,14 @@ export interface RoutineExercise {
   muscle_group: string
   sets: number
   reps: number
+  /** Countdown started when a set is ticked off. 0 means no timer. */
   rest_seconds: number
+  /**
+   * Exercises sharing this are one superset, done back to back as a round.
+   * Absent or null on a normal exercise. Members are kept adjacent in the
+   * array — see src/lib/supersets.ts, which owns that invariant.
+   */
+  superset_id?: string | null
   /**
    * Starting weight per set, in kg, from a CSV import — absent on routines
    * built in the app.

@@ -6,7 +6,14 @@ import type { RoutineExercise, Visibility, Workout } from '@/types/db'
 import { Modal } from '@/components/ui/Modal'
 import { Alert } from '@/components/ui/Alert'
 import { ExerciseLibrary } from './ExerciseLibrary'
-import { TrashIcon } from '@/components/ui/icons'
+import { TrashIcon, XIcon } from '@/components/ui/icons'
+import {
+  createSuperset,
+  dissolveSuperset,
+  groupExercises,
+  removeExercise,
+  removeFromSuperset,
+} from '@/lib/supersets'
 
 /**
  * Create or edit a routine. Exercises are held in local state and written as a
@@ -31,6 +38,8 @@ export function RoutineBuilder({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [showPicker, setShowPicker] = useState(false)
+  /** Indexes ticked while grouping. null means not in grouping mode. */
+  const [selecting, setSelecting] = useState<number[] | null>(null)
 
   // Re-seed when a different routine (or "new") is opened.
   const seedKey = editing?.id ?? 'new'
@@ -43,6 +52,7 @@ export function RoutineBuilder({
     setItems(editing?.exercises ?? [])
     setError('')
     setShowPicker(false)
+    setSelecting(null)
   }
   if (!open && seeded !== null) setSeeded(null)
 
@@ -65,7 +75,24 @@ export function RoutineBuilder({
   }
 
   function removeItem(index: number) {
-    setItems((current) => current.filter((_, i) => i !== index))
+    setItems((current) => removeExercise(current, index))
+    setSelecting(null)
+  }
+
+  function toggleSelected(index: number) {
+    setSelecting((current) =>
+      current === null
+        ? [index]
+        : current.includes(index)
+          ? current.filter((i) => i !== index)
+          : [...current, index],
+    )
+  }
+
+  function confirmSuperset() {
+    if (!selecting || selecting.length < 2) return
+    setItems((current) => createSuperset(current, selecting))
+    setSelecting(null)
   }
 
   async function handleSave() {
@@ -188,45 +215,104 @@ export function RoutineBuilder({
                 No exercises yet
               </p>
             ) : (
-              <ul className="space-y-2">
-                {items.map((item, index) => (
-                  <li key={`${item.exercise_id}-${index}`} className="rounded-xl border border-slate-200 p-3">
-                    <div className="mb-2 flex items-start justify-between gap-2">
-                      <p className="text-sm font-medium text-slate-900">{item.name}</p>
+              <>
+                {/* Grouping is a mode rather than a per-row control: a superset
+                    is a relationship between exercises, so it can't be
+                    expressed by acting on one of them. */}
+                {selecting === null ? (
+                  items.length > 1 ? (
+                    <button
+                      type="button"
+                      onClick={() => setSelecting([])}
+                      className="btn-secondary mb-2 w-full !py-2 text-sm"
+                    >
+                      Create a superset
+                    </button>
+                  ) : null
+                ) : (
+                  <div className="mb-2 rounded-xl border border-ocean-200 bg-ocean-50 p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-sm font-semibold text-ocean-800">
+                        Pick the exercises to superset
+                      </p>
                       <button
                         type="button"
-                        onClick={() => removeItem(index)}
-                        className="btn-ghost !p-1 shrink-0 text-red-500 hover:bg-red-50"
-                        aria-label={`Remove ${item.name}`}
+                        onClick={() => setSelecting(null)}
+                        className="btn-ghost !p-1 shrink-0 !text-ocean-700"
+                        aria-label="Cancel"
                       >
-                        <TrashIcon className="size-4" />
+                        <XIcon className="size-4" />
                       </button>
                     </div>
+                    <p className="mt-0.5 text-xs text-ocean-700">
+                      They&apos;ll be done back to back as one round, and moved together in the
+                      list. Set the rest to 0 on all but the last so the timer only runs at the end
+                      of a round.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={confirmSuperset}
+                      disabled={selecting.length < 2}
+                      className="btn-primary mt-2 w-full !py-2 text-sm"
+                    >
+                      {selecting.length < 2
+                        ? `Pick ${2 - selecting.length} more`
+                        : `Superset these ${selecting.length}`}
+                    </button>
+                  </div>
+                )}
 
-                    <div className="grid grid-cols-3 gap-2">
-                      <NumberField
-                        label="Sets"
-                        value={item.sets}
-                        min={1}
-                        onChange={(v) => updateItem(index, { sets: v })}
+                <ul className="space-y-2">
+                  {groupExercises(items).map((block) => {
+                    const rows = block.items.map(({ exercise, index }) => (
+                      <ExerciseRow
+                        key={`${exercise.exercise_id}-${index}`}
+                        item={exercise}
+                        index={index}
+                        selectable={selecting !== null}
+                        selected={selecting?.includes(index) ?? false}
+                        onToggleSelected={() => toggleSelected(index)}
+                        onRemove={() => removeItem(index)}
+                        onChange={(patch) => updateItem(index, patch)}
+                        onLeaveSuperset={
+                          block.supersetId
+                            ? () => setItems((current) => removeFromSuperset(current, index))
+                            : undefined
+                        }
                       />
-                      <NumberField
-                        label="Reps"
-                        value={item.reps}
-                        min={1}
-                        onChange={(v) => updateItem(index, { reps: v })}
-                      />
-                      <NumberField
-                        label="Rest (s)"
-                        value={item.rest_seconds}
-                        min={0}
-                        step={15}
-                        onChange={(v) => updateItem(index, { rest_seconds: v })}
-                      />
-                    </div>
-                  </li>
-                ))}
-              </ul>
+                    ))
+
+                    if (!block.supersetId) return rows
+
+                    return (
+                      <li
+                        key={block.supersetId}
+                        className="rounded-xl border-2 p-2"
+                        style={{ borderColor: block.color ?? undefined }}
+                      >
+                        <div className="mb-2 flex items-center justify-between gap-2 px-1">
+                          <span
+                            className="text-xs font-bold tracking-wide uppercase"
+                            style={{ color: block.color ?? undefined }}
+                          >
+                            Superset {block.label}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setItems((current) => dissolveSuperset(current, block.supersetId!))
+                            }
+                            className="text-xs font-semibold text-slate-500 hover:text-slate-900"
+                          >
+                            Ungroup
+                          </button>
+                        </div>
+                        <ul className="space-y-2">{rows}</ul>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </>
             )}
           </div>
 
@@ -243,6 +329,98 @@ export function RoutineBuilder({
         </div>
       )}
     </Modal>
+  )
+}
+
+/** One exercise in the builder. Doubles as a selection target while grouping. */
+function ExerciseRow({
+  item,
+  index,
+  selectable,
+  selected,
+  onToggleSelected,
+  onRemove,
+  onChange,
+  onLeaveSuperset,
+}: {
+  item: RoutineExercise
+  index: number
+  selectable: boolean
+  selected: boolean
+  onToggleSelected: () => void
+  onRemove: () => void
+  onChange: (patch: Partial<RoutineExercise>) => void
+  /** Only passed when this exercise is in a superset. */
+  onLeaveSuperset?: () => void
+}) {
+  return (
+    <li
+      className={`rounded-xl border p-3 transition-colors ${
+        selected ? 'border-ocean-500 bg-ocean-50' : 'border-slate-200'
+      }`}
+    >
+      <div className="mb-2 flex items-start justify-between gap-2">
+        {selectable ? (
+          <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2">
+            <input
+              type="checkbox"
+              checked={selected}
+              onChange={onToggleSelected}
+              className="size-4 shrink-0 accent-ocean-600"
+            />
+            <span className="truncate text-sm font-medium text-slate-900">{item.name}</span>
+          </label>
+        ) : (
+          <p className="min-w-0 flex-1 truncate text-sm font-medium text-slate-900">{item.name}</p>
+        )}
+
+        <button
+          type="button"
+          onClick={onRemove}
+          className="btn-ghost !p-1 shrink-0 text-red-500 hover:bg-red-50"
+          aria-label={`Remove ${item.name}`}
+        >
+          <TrashIcon className="size-4" />
+        </button>
+      </div>
+
+      <div className="grid grid-cols-3 gap-2">
+        <NumberField
+          label="Sets"
+          value={item.sets}
+          min={1}
+          onChange={(v) => onChange({ sets: v })}
+        />
+        <NumberField
+          label="Reps"
+          value={item.reps}
+          min={1}
+          onChange={(v) => onChange({ reps: v })}
+        />
+        <NumberField
+          label="Rest (s)"
+          value={item.rest_seconds}
+          min={0}
+          step={15}
+          onChange={(v) => onChange({ rest_seconds: v })}
+        />
+      </div>
+      <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-[11px] text-slate-400">
+          {item.rest_seconds === 0 ? 'No rest timer after these sets.' : ''}
+        </p>
+        {onLeaveSuperset ? (
+          <button
+            type="button"
+            onClick={onLeaveSuperset}
+            className="text-[11px] font-semibold text-slate-500 hover:text-slate-900"
+          >
+            Take out of superset
+          </button>
+        ) : null}
+      </div>
+      <span className="sr-only">Exercise {index + 1}</span>
+    </li>
   )
 }
 
