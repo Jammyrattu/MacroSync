@@ -34,3 +34,12 @@ supabase/.branches
 *.njsproj
 *.sln
 *.sw?
+
+# Android — the TWA shell. Build outputs and, critically, the signing key:
+# losing the keystore means never being able to update the app again, and
+# committing it means anyone with repo access can publish as you.
+android/build/
+android/app/build/
+android/.gradle/
+*.keystore
+*.jks

@@ -1,5 +1,5 @@
 /**
- * send-notification — turns a database event into an email.
+ * send-notification — turns a database event into an email and a push.
  *
  * Called by pg_net from AFTER INSERT triggers, never by a browser. The database
  * sends ids only; this reads the surrounding detail with the service key, so no
@@ -14,6 +14,7 @@
  */
 
 import { createClient, type SupabaseClient } from 'jsr:@supabase/supabase-js@2'
+import webpush from 'npm:web-push@3.6.7'
 import { renderEmail, renderText, templates, type EmailContent } from '../_shared/emails.ts'
 
 const json = (body: unknown, status = 200) =>
@@ -22,42 +23,56 @@ const json = (body: unknown, status = 200) =>
 const APP_URL = Deno.env.get('APP_URL') ?? 'https://www.macrosync.co.uk'
 const FROM = Deno.env.get('RESEND_FROM') ?? 'MacroSync <notifications@macrosync.co.uk>'
 
-interface Recipient {
-  id: string
-  email: string
+/** Who to tell, and on which channel. */
+interface Audience {
+  /** Addresses for the email transport. */
+  emails: string[]
+  /** User ids for the push transport. */
+  pushUserIds: string[]
+  /** Distinct people reached, however they're reached. */
+  count: number
 }
 
-/** Emails for user ids, minus anyone who opted out of this event type. */
-async function recipientsFor(
+/**
+ * Split a set of user ids into the two transports.
+ *
+ * The per-event switch (on_comment, on_follow, ...) is shared: opting out of
+ * an event opts you out of it everywhere, which is what someone means when
+ * they turn it off. The two master switches are what decide the channel.
+ */
+async function audienceFor(
   admin: SupabaseClient,
   userIds: string[],
   preferenceColumn: string,
-): Promise<Recipient[]> {
+): Promise<Audience> {
   const unique = [...new Set(userIds)].filter(Boolean)
-  if (unique.length === 0) return []
+  if (unique.length === 0) return { emails: [], pushUserIds: [], count: 0 }
 
   const { data: prefs } = await admin
     .from('notification_preferences')
-    .select(`user_id, email_enabled, ${preferenceColumn}`)
+    .select(`user_id, email_enabled, push_enabled, ${preferenceColumn}`)
     .in('user_id', unique)
 
-  // No row means opted in, so only an explicit false excludes someone.
-  const optedOut = new Set(
-    (prefs ?? [])
-      .filter((p: Record<string, unknown>) => p.email_enabled === false || p[preferenceColumn] === false)
-      .map((p: Record<string, unknown>) => p.user_id as string),
+  const byUser = new Map(
+    (prefs ?? []).map((p: Record<string, unknown>) => [p.user_id as string, p]),
   )
 
-  const wanted = unique.filter((id) => !optedOut.has(id))
-  if (wanted.length === 0) return []
+  // No row means opted in, so only an explicit false excludes someone — except
+  // for push, which is opt-IN because it needs a permission grant first.
+  const wanted = unique.filter((id) => byUser.get(id)?.[preferenceColumn] !== false)
+  if (wanted.length === 0) return { emails: [], pushUserIds: [], count: 0 }
+
+  const emailIds = wanted.filter((id) => byUser.get(id)?.email_enabled !== false)
+  const pushUserIds = wanted.filter((id) => byUser.get(id)?.push_enabled === true)
 
   // auth.users isn't exposed through PostgREST, so emails come from the admin API.
-  const out: Recipient[] = []
-  for (const id of wanted) {
+  const emails: string[] = []
+  for (const id of emailIds) {
     const { data } = await admin.auth.admin.getUserById(id)
-    if (data.user?.email) out.push({ id, email: data.user.email })
+    if (data.user?.email) emails.push(data.user.email)
   }
-  return out
+
+  return { emails, pushUserIds, count: wanted.length }
 }
 
 async function sendEmail(to: string[], content: EmailContent): Promise<{ ok: boolean; detail?: string }> {
@@ -79,6 +94,110 @@ async function sendEmail(to: string[], content: EmailContent): Promise<{ ok: boo
 
   if (!res.ok) return { ok: false, detail: (await res.text()).slice(0, 200) }
   return { ok: true }
+}
+
+/**
+ * Push the SAME content the email carries.
+ *
+ * No second set of wording: heading and first paragraph become the title and
+ * body, so a change to a template changes both channels at once. The paragraph
+ * is stripped of the <strong> tags the email uses — a notification is plain
+ * text, and the markup would show through literally.
+ */
+async function sendPush(
+  admin: SupabaseClient,
+  userIds: string[],
+  content: EmailContent,
+  tag: string,
+): Promise<{ pushed: number; detail?: string }> {
+  if (userIds.length === 0) return { pushed: 0 }
+
+  const publicKey = Deno.env.get('VAPID_PUBLIC_KEY')
+  const privateKey = Deno.env.get('VAPID_PRIVATE_KEY')
+  if (!publicKey || !privateKey) return { pushed: 0, detail: 'VAPID keys not set' }
+
+  const { data: subs } = await admin
+    .from('push_subscriptions')
+    .select('id, endpoint, p256dh, auth')
+    .in('user_id', userIds)
+
+  if (!subs || subs.length === 0) return { pushed: 0 }
+
+  webpush.setVapidDetails(
+    Deno.env.get('VAPID_SUBJECT') ?? 'mailto:accounts@macrosync.co.uk',
+    publicKey,
+    privateKey,
+  )
+
+  const body = JSON.stringify({
+    title: content.heading,
+    body: (content.body[0] ?? '').replace(/<[^>]+>/g, ''),
+    url: content.cta?.url ?? APP_URL,
+    tag,
+  })
+
+  let pushed = 0
+  let expired = 0
+  const dead: string[] = []
+  // Reported rather than swallowed. A push that fails for any reason other
+  // than a dead endpoint is invisible from the outside — no bounce, no error
+  // anywhere — so without this the only symptom is "notifications stopped".
+  const failures: string[] = []
+
+  await Promise.all(
+    subs.map(async (sub: { id: string; endpoint: string; p256dh: string; auth: string }) => {
+      try {
+        await webpush.sendNotification(
+          { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+          body,
+        )
+        pushed++
+      } catch (err) {
+        // 404/410 mean the browser threw the subscription away — the user
+        // cleared site data, uninstalled, or the endpoint rotated. Keeping it
+        // would mean retrying a dead endpoint on every notification forever.
+        const status = (err as { statusCode?: number }).statusCode
+        if (status === 404 || status === 410) {
+          dead.push(sub.id)
+          expired++
+          return
+        }
+        failures.push(
+          `${status ?? 'no-status'}: ${(err instanceof Error ? err.message : String(err)).slice(0, 120)}`,
+        )
+      }
+    }),
+  )
+
+  if (dead.length > 0) {
+    await admin.from('push_subscriptions').delete().in('id', dead)
+  }
+
+  return {
+    pushed,
+    expired,
+    ...(failures.length > 0 ? { pushFailed: failures.slice(0, 3) } : {}),
+  }
+}
+
+/**
+ * One event, both channels, one piece of copy.
+ *
+ * Every case below calls this rather than sending directly, so there is no way
+ * to add an event that emails but doesn't push, or that words itself
+ * differently on one of them.
+ */
+async function deliver(
+  admin: SupabaseClient,
+  audience: Audience,
+  content: EmailContent,
+  tag: string,
+) {
+  const [email, push] = await Promise.all([
+    sendEmail(audience.emails, content),
+    sendPush(admin, audience.pushUserIds, content, tag),
+  ])
+  return { ...email, emailed: audience.emails.length, ...push }
 }
 
 /**
@@ -144,30 +263,34 @@ Deno.serve(async (req) => {
           .eq('id', payload.comment_id)
           .maybeSingle()
 
-        const to = await recipientsFor(admin, [post.user_id], 'on_comment')
-        const result = await sendEmail(
-          to.map((r) => r.email),
+        const to = await audienceFor(admin, [post.user_id], 'on_comment')
+        const result = await deliver(
+          admin,
+          to,
           templates.comment({
             actorName: await name(payload.actor_id),
             postTitle: post.title,
             excerpt: (comment?.content ?? '').slice(0, 200),
             appUrl: APP_URL,
           }),
+          event,
         )
-        return json({ event, sent: to.length, ...result })
+        return json({ event, audience: to.count, ...result })
       }
 
       case 'follow': {
-        const to = await recipientsFor(admin, [payload.following_id], 'on_follow')
-        const result = await sendEmail(
-          to.map((r) => r.email),
+        const to = await audienceFor(admin, [payload.following_id], 'on_follow')
+        const result = await deliver(
+          admin,
+          to,
           templates.follow({
             followerName: await name(payload.follower_id),
             followerId: payload.follower_id,
             appUrl: APP_URL,
           }),
+          event,
         )
-        return json({ event, sent: to.length, ...result })
+        return json({ event, audience: to.count, ...result })
       }
 
       case 'challenge_invite': {
@@ -178,9 +301,10 @@ Deno.serve(async (req) => {
           .maybeSingle()
         if (!challenge) return json({ skipped: 'challenge gone' })
 
-        const to = await recipientsFor(admin, [payload.user_id], 'on_challenge_invite')
-        const result = await sendEmail(
-          to.map((r) => r.email),
+        const to = await audienceFor(admin, [payload.user_id], 'on_challenge_invite')
+        const result = await deliver(
+          admin,
+          to,
           templates.challenge_invite({
             inviterName: await name(payload.invited_by),
             challengeName: challenge.name,
@@ -193,8 +317,9 @@ Deno.serve(async (req) => {
             minCheckins: challenge.min_checkins_per_week,
             appUrl: APP_URL,
           }),
+          event,
         )
-        return json({ event, sent: to.length, ...result })
+        return json({ event, audience: to.count, ...result })
       }
 
       case 'challenge_checkin': {
@@ -213,14 +338,15 @@ Deno.serve(async (req) => {
           .eq('status', 'accepted')
           .neq('user_id', payload.actor_id)
 
-        const to = await recipientsFor(
+        const to = await audienceFor(
           admin,
           (roster ?? []).map((r) => r.user_id),
           'on_challenge_checkin',
         )
 
-        const result = await sendEmail(
-          to.map((r) => r.email),
+        const result = await deliver(
+          admin,
+          to,
           templates.challenge_checkin({
             actorName: await name(payload.actor_id),
             challengeName: challenge.name,
@@ -228,8 +354,9 @@ Deno.serve(async (req) => {
             required: challenge.min_checkins_per_week,
             appUrl: APP_URL,
           }),
+          event,
         )
-        return json({ event, sent: to.length, ...result })
+        return json({ event, audience: to.count, ...result })
       }
 
       case 'checkin_comment': {
@@ -254,9 +381,10 @@ Deno.serve(async (req) => {
           .eq('id', payload.comment_id)
           .maybeSingle()
 
-        const to = await recipientsFor(admin, [checkin.user_id], 'on_checkin_comment')
-        const result = await sendEmail(
-          to.map((r) => r.email),
+        const to = await audienceFor(admin, [checkin.user_id], 'on_checkin_comment')
+        const result = await deliver(
+          admin,
+          to,
           templates.checkin_comment({
             actorName: await name(payload.actor_id),
             challengeName: challenge?.name ?? 'your challenge',
@@ -264,8 +392,9 @@ Deno.serve(async (req) => {
             challengeId: payload.challenge_id,
             appUrl: APP_URL,
           }),
+          event,
         )
-        return json({ event, sent: to.length, ...result })
+        return json({ event, audience: to.count, ...result })
       }
 
       default:
