@@ -70,40 +70,49 @@ function Swatch({ mode, half = false }: { mode: 'light' | 'dark'; half?: boolean
  * see, so making you press Save to find out is the wrong shape.
  */
 export function ThemePicker() {
-  const { theme, resolved, setTheme } = useTheme()
+  const { theme, resolved, setTheme, saveFailed } = useTheme()
 
   return (
-    <div className="grid grid-cols-3 gap-3" role="radiogroup" aria-label="Theme">
-      {THEMES.map((option) => {
-        const selected = theme === option.id
-        return (
-          <button
-            key={option.id}
-            type="button"
-            role="radio"
-            aria-checked={selected}
-            onClick={() => setTheme(option.id)}
-            className={`rounded-xl border-2 p-2 text-center transition-colors ${
-              selected
-                ? 'border-brand-500 bg-brand-50'
-                : 'border-slate-200 hover:border-slate-300'
-            }`}
-          >
-            <Preview theme={option.id} />
-            <span
-              className={`mt-2 block text-sm font-semibold ${
-                selected ? 'text-brand-700' : 'text-slate-700'
+    <div className="space-y-2">
+      <div className="grid grid-cols-3 gap-3" role="radiogroup" aria-label="Theme">
+        {THEMES.map((option) => {
+          const selected = theme === option.id
+          return (
+            <button
+              key={option.id}
+              type="button"
+              role="radio"
+              aria-checked={selected}
+              onClick={() => setTheme(option.id)}
+              className={`rounded-xl border-2 p-2 text-center transition-colors ${
+                selected
+                  ? 'border-brand-500 bg-brand-50'
+                  : 'border-slate-200 hover:border-slate-300'
               }`}
             >
-              {option.label}
-            </span>
-            <span className="mt-0.5 block text-[11px] leading-tight text-slate-500">
-              {/* "System" on its own doesn't tell you what you'll get. */}
-              {option.id === 'system' && selected ? `Currently ${resolved}.` : option.detail}
-            </span>
-          </button>
-        )
-      })}
+              <Preview theme={option.id} />
+              <span
+                className={`mt-2 block text-sm font-semibold ${
+                  selected ? 'text-brand-700' : 'text-slate-700'
+                }`}
+              >
+                {option.label}
+              </span>
+              <span className="mt-0.5 block text-[11px] leading-tight text-slate-500">
+                {/* "System" on its own doesn't tell you what you'll get. */}
+                {option.id === 'system' && selected ? `Currently ${resolved}.` : option.detail}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+
+      {saveFailed ? (
+        <p className="text-xs text-red-600">
+          That didn&apos;t save to your account — it applies here, but it&apos;ll go back when you
+          reload. Check your connection and pick it again.
+        </p>
+      ) : null}
     </div>
   )
 }

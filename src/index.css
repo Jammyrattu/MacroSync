@@ -128,6 +128,11 @@
   --color-ocean-50: #10243f;
   --color-ocean-100: #16345a;
   --color-ocean-200: #1e4a7a;
+  /* 500 and 600 are markers rather than fills — the active-set bar, the rest
+     progress bar, the superset label and its border. On a dark surface the
+     light values are too deep to register, so both step up one. */
+  --color-ocean-500: #60a5fa;
+  --color-ocean-600: #3b82f6;
   --color-ocean-700: #93c5fd;
   --color-ocean-800: #bfdbfe;
 

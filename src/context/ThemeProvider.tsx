@@ -27,6 +27,12 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const { user, profile } = useAuth()
   const [theme, setThemeState] = useState<Theme>(readStoredTheme)
   const [resolved, setResolved] = useState(() => resolveTheme(readStoredTheme()))
+  /**
+   * True when the choice couldn't be written to the profile. Surfaced rather
+   * than swallowed: without it a failed save looks exactly like success until
+   * the next reload silently reverts it.
+   */
+  const [saveFailed, setSaveFailed] = useState(false)
 
   // Guards against writing the profile's own value straight back to it.
   const lastSavedRef = useRef<Theme | null>(null)
@@ -64,18 +70,41 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   const setTheme = useCallback(
     (next: Theme) => {
+      // Applied straight away and never blocked on the network — you are
+      // choosing something you can see.
       setThemeState(next)
+      setSaveFailed(false)
 
       // Signed out — the login screens — there is no row to write to yet, so
       // localStorage is the whole story until there is.
       if (!user || next === lastSavedRef.current) return
+
+      const previous = lastSavedRef.current
       lastSavedRef.current = next
-      void supabase.from('profiles').update({ theme: next }).eq('id', user.id)
+
+      // The .then() is load-bearing, not decoration. A supabase-js query
+      // builder is a lazy thenable: it only performs the request when
+      // something subscribes to it. Writing `void supabase.from(...).update()`
+      // reads like fire-and-forget but sends nothing at all, which is exactly
+      // how this silently failed to save for every user.
+      void supabase
+        .from('profiles')
+        .update({ theme: next })
+        .eq('id', user.id)
+        .then(({ error }) => {
+          if (!error) return
+          // Put the marker back, or picking the same option again would be
+          // skipped as a no-op and there would be no way to retry.
+          lastSavedRef.current = previous
+          setSaveFailed(true)
+        })
     },
     [user],
   )
 
   return (
-    <ThemeContext.Provider value={{ theme, resolved, setTheme }}>{children}</ThemeContext.Provider>
+    <ThemeContext.Provider value={{ theme, resolved, setTheme, saveFailed }}>
+      {children}
+    </ThemeContext.Provider>
   )
 }
