@@ -25,6 +25,13 @@ export interface EmailContent {
   cta?: { label: string; url: string }
   /** Small print under the button. */
   footnote?: string
+  /**
+   * Replaces the "manage your preferences" line at the bottom.
+   *
+   * Needed by the auth emails: a password reset is not something anyone can
+   * turn off, so offering to is both wrong and alarming.
+   */
+  footer?: string
 }
 
 const escapeHtml = (value: string) =>
@@ -105,9 +112,12 @@ export function renderEmail(content: EmailContent, appUrl: string): string {
         <tr><td class="pad" style="padding:24px 32px 26px;">
           <hr style="border:none;border-top:1px solid ${LINE};margin:0 0 14px;">
           <p style="margin:0;font-size:12px;line-height:1.6;color:${MUTED};">
-            You're getting this because of activity on your MacroSync account.
+            ${
+              content.footer ??
+              `You're getting this because of activity on your MacroSync account.
             <a href="${escapeHtml(appUrl)}/settings" style="color:${BRAND_DARK};">Manage email preferences</a>
-            to change what we send, or turn these off entirely.
+            to change what we send, or turn these off entirely.`
+            }
           </p>
         </td></tr>
 
@@ -132,7 +142,13 @@ export function renderText(content: EmailContent, appUrl: string): string {
   ]
   if (content.cta) lines.push('', `${content.cta.label}: ${content.cta.url}`)
   if (content.footnote) lines.push('', content.footnote.replace(/<[^>]+>/g, ''))
-  lines.push('', '—', `Manage email preferences: ${appUrl}/settings`)
+  lines.push(
+    '',
+    '—',
+    content.footer
+      ? content.footer.replace(/<[^>]+>/g, '')
+      : `Manage email preferences: ${appUrl}/settings`,
+  )
   return lines.join('\n')
 }
 
