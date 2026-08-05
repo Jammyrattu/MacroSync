@@ -138,7 +138,7 @@ function CategoryChip({
       className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-semibold whitespace-nowrap transition-colors ${
         active
           ? 'bg-brand-600 text-white'
-          : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+          : 'border border-slate-200 bg-surface text-slate-600 hover:bg-slate-50'
       }`}
     >
       {children}

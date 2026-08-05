@@ -19,7 +19,7 @@ export function Tabs<T extends string>({
           onClick={() => onChange(tab.id)}
           className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold whitespace-nowrap transition-colors ${
             active === tab.id
-              ? 'bg-white text-slate-900 shadow-sm'
+              ? 'bg-surface-raised text-slate-900 shadow-sm'
               : 'text-slate-600 hover:text-slate-900'
           }`}
         >

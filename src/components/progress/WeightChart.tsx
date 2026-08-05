@@ -29,25 +29,25 @@ export function WeightChart({ logs }: { logs: WeightLog[] }) {
   return (
     <ResponsiveContainer width="100%" height={240}>
       <LineChart data={data} margin={{ top: 8, right: 12, bottom: 4, left: -12 }}>
-        <CartesianGrid vertical={false} stroke="#e2e8f0" strokeDasharray="3 3" />
+        <CartesianGrid vertical={false} stroke="var(--color-slate-200)" strokeDasharray="3 3" />
         <XAxis
           dataKey="date"
           tickFormatter={formatShortDate}
-          tick={{ fontSize: 11, fill: '#64748b' }}
+          tick={{ fontSize: 11, fill: 'var(--color-slate-500)' }}
           tickLine={false}
           axisLine={false}
           minTickGap={24}
         />
         <YAxis
           domain={[min, max]}
-          tick={{ fontSize: 11, fill: '#64748b' }}
+          tick={{ fontSize: 11, fill: 'var(--color-slate-500)' }}
           tickLine={false}
           axisLine={false}
           width={44}
           unit="kg"
         />
         <Tooltip
-          cursor={{ stroke: '#94a3b8', strokeWidth: 1 }}
+          cursor={{ stroke: 'var(--color-slate-400)', strokeWidth: 1 }}
           content={({ active, payload, label }) =>
             active && payload?.length ? (
               <ChartTooltip label={formatShortDate(String(label))}>
@@ -62,7 +62,7 @@ export function WeightChart({ logs }: { logs: WeightLog[] }) {
           stroke="var(--color-brand-500)"
           strokeWidth={2}
           dot={{ r: 3, strokeWidth: 0, fill: 'var(--color-brand-500)' }}
-          activeDot={{ r: 5, strokeWidth: 2, stroke: '#fff' }}
+          activeDot={{ r: 5, strokeWidth: 2, stroke: 'var(--color-surface)' }}
         />
       </LineChart>
     </ResponsiveContainer>

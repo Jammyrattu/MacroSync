@@ -26,17 +26,17 @@ export function CalorieHistoryChart({ data, goal }: { data: DayCalories[]; goal:
   return (
     <ResponsiveContainer width="100%" height={240}>
       <BarChart data={data} margin={{ top: 8, right: 12, bottom: 4, left: -12 }} barCategoryGap={2}>
-        <CartesianGrid vertical={false} stroke="#e2e8f0" strokeDasharray="3 3" />
+        <CartesianGrid vertical={false} stroke="var(--color-slate-200)" strokeDasharray="3 3" />
         <XAxis
           dataKey="date"
           tickFormatter={formatShortDate}
-          tick={{ fontSize: 11, fill: '#64748b' }}
+          tick={{ fontSize: 11, fill: 'var(--color-slate-500)' }}
           tickLine={false}
           axisLine={false}
           minTickGap={20}
         />
         <YAxis
-          tick={{ fontSize: 11, fill: '#64748b' }}
+          tick={{ fontSize: 11, fill: 'var(--color-slate-500)' }}
           tickLine={false}
           axisLine={false}
           width={44}
@@ -63,13 +63,13 @@ export function CalorieHistoryChart({ data, goal }: { data: DayCalories[]; goal:
         />
         <ReferenceLine
           y={goal}
-          stroke="#475569"
+          stroke="var(--color-slate-600)"
           strokeDasharray="4 4"
           label={{
             value: `Goal ${goal}`,
             position: 'insideTopRight',
             fontSize: 11,
-            fill: '#475569',
+            fill: 'var(--color-slate-600)',
           }}
         />
         <Bar dataKey="calories" radius={[4, 4, 0, 0]}>

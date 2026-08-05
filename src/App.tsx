@@ -1,6 +1,7 @@
 import { Suspense, lazy } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
 import { AuthProvider } from '@/context/AuthProvider'
+import { ThemeProvider } from '@/context/ThemeProvider'
 import { Spinner } from '@/components/ui/Spinner'
 import { isSupabaseConfigured } from '@/lib/supabase'
 import { SetupNotice } from '@/components/SetupNotice'
@@ -44,59 +45,62 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <Routes>
-          {/* Signed-out */}
-          <Route element={<PublicOnlyRoute />}>
-            <Route path="/login" element={<Login />} />
-            <Route path="/signup" element={<Signup />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-          </Route>
-
-          {/* Outside both guards: the recovery link arrives with a session
-              attached, so PublicOnlyRoute would bounce it away. */}
-          <Route path="/reset-password" element={<ResetPassword />} />
-
-          {/* Signed-in */}
-          <Route element={<ProtectedRoute />}>
-            <Route element={<RequireNotOnboarded />}>
-              <Route path="/onboarding" element={<Onboarding />} />
+        {/* Inside AuthProvider: the saved theme lives on the profile row. */}
+        <ThemeProvider>
+          <Routes>
+            {/* Signed-out */}
+            <Route element={<PublicOnlyRoute />}>
+              <Route path="/login" element={<Login />} />
+              <Route path="/signup" element={<Signup />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
             </Route>
 
-            <Route element={<OnboardedGate />}>
-              {/* Full-screen — a live workout has its own chrome. */}
-              <Route path="/workouts/session/:workoutId" element={<WorkoutSession />} />
+            {/* Outside both guards: the recovery link arrives with a session
+                attached, so PublicOnlyRoute would bounce it away. */}
+            <Route path="/reset-password" element={<ResetPassword />} />
 
-              <Route element={<AppLayout />}>
-                {/* Progress is the home page. Redirecting rather than
-                    rendering it here keeps one canonical URL, so the nav
-                    highlights correctly and every existing navigate('/') in
-                    the app still lands somewhere real. */}
-                <Route index element={<Navigate to="/progress" replace />} />
-                <Route path="/add-food" element={<AddFood />} />
-                <Route
-                  path="/progress"
-                  element={
-                    <Suspense fallback={<Spinner full />}>
-                      <Progress />
-                    </Suspense>
-                  }
-                />
-                <Route path="/workouts" element={<Workouts />} />
-                <Route path="/community" element={<Community />} />
-                <Route path="/challenges" element={<Challenges />} />
-                <Route path="/challenges/:challengeId" element={<ChallengeDetail />} />
-                <Route path="/u/:userId" element={<UserProfile />} />
-                <Route path="/settings" element={<Settings />} />
+            {/* Signed-in */}
+            <Route element={<ProtectedRoute />}>
+              <Route element={<RequireNotOnboarded />}>
+                <Route path="/onboarding" element={<Onboarding />} />
+              </Route>
 
-                <Route element={<AdminRoute />}>
-                  <Route path="/admin" element={<Admin />} />
+              <Route element={<OnboardedGate />}>
+                {/* Full-screen — a live workout has its own chrome. */}
+                <Route path="/workouts/session/:workoutId" element={<WorkoutSession />} />
+
+                <Route element={<AppLayout />}>
+                  {/* Progress is the home page. Redirecting rather than
+                      rendering it here keeps one canonical URL, so the nav
+                      highlights correctly and every existing navigate('/') in
+                      the app still lands somewhere real. */}
+                  <Route index element={<Navigate to="/progress" replace />} />
+                  <Route path="/add-food" element={<AddFood />} />
+                  <Route
+                    path="/progress"
+                    element={
+                      <Suspense fallback={<Spinner full />}>
+                        <Progress />
+                      </Suspense>
+                    }
+                  />
+                  <Route path="/workouts" element={<Workouts />} />
+                  <Route path="/community" element={<Community />} />
+                  <Route path="/challenges" element={<Challenges />} />
+                  <Route path="/challenges/:challengeId" element={<ChallengeDetail />} />
+                  <Route path="/u/:userId" element={<UserProfile />} />
+                  <Route path="/settings" element={<Settings />} />
+
+                  <Route element={<AdminRoute />}>
+                    <Route path="/admin" element={<Admin />} />
+                  </Route>
                 </Route>
               </Route>
             </Route>
-          </Route>
 
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </ThemeProvider>
       </AuthProvider>
     </BrowserRouter>
   )

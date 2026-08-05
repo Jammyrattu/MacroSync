@@ -54,18 +54,18 @@ export function MetricTrendChart({
           </linearGradient>
         </defs>
 
-        <CartesianGrid vertical={false} stroke="#e2e8f0" strokeDasharray="3 3" />
+        <CartesianGrid vertical={false} stroke="var(--color-slate-200)" strokeDasharray="3 3" />
         <XAxis
           dataKey="date"
           tickFormatter={formatShortDate}
-          tick={{ fontSize: 11, fill: '#64748b' }}
+          tick={{ fontSize: 11, fill: 'var(--color-slate-500)' }}
           tickLine={false}
           axisLine={false}
           minTickGap={28}
         />
         <YAxis
           domain={[0, Math.ceil(max * 1.1)]}
-          tick={{ fontSize: 11, fill: '#64748b' }}
+          tick={{ fontSize: 11, fill: 'var(--color-slate-500)' }}
           tickLine={false}
           axisLine={false}
           width={44}
@@ -78,14 +78,14 @@ export function MetricTrendChart({
         {goal !== null ? (
           <ReferenceLine
             y={goal}
-            stroke="#94a3b8"
+            stroke="var(--color-slate-400)"
             strokeDasharray="4 4"
-            label={{ value: 'Goal', position: 'right', fontSize: 10, fill: '#94a3b8' }}
+            label={{ value: 'Goal', position: 'right', fontSize: 10, fill: 'var(--color-slate-400)' }}
           />
         ) : null}
 
         <Tooltip
-          cursor={{ stroke: '#94a3b8', strokeWidth: 1 }}
+          cursor={{ stroke: 'var(--color-slate-400)', strokeWidth: 1 }}
           content={({ active, payload, label: point }) =>
             active && payload?.length ? (
               <ChartTooltip label={formatShortDate(String(point))}>
@@ -103,7 +103,7 @@ export function MetricTrendChart({
           strokeWidth={2}
           fill="url(#trend-fill)"
           dot={false}
-          activeDot={{ r: 4, strokeWidth: 2, stroke: '#fff' }}
+          activeDot={{ r: 4, strokeWidth: 2, stroke: 'var(--color-surface)' }}
         />
       </AreaChart>
     </ResponsiveContainer>

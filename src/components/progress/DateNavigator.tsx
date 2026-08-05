@@ -49,7 +49,7 @@ export function DateNavigator({
             // An empty value means the field was cleared, not a date chosen.
             if (e.target.value) onChange(e.target.value)
           }}
-          className="mx-auto mt-0.5 block w-full max-w-[11rem] rounded-lg border border-slate-200 bg-white px-2 py-1 text-center text-xs text-slate-600 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 focus:outline-none"
+          className="mx-auto mt-0.5 block w-full max-w-[11rem] rounded-lg border border-slate-200 bg-surface px-2 py-1 text-center text-xs text-slate-600 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 focus:outline-none"
         />
       </div>
 

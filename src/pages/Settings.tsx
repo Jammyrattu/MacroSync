@@ -15,6 +15,7 @@ import { Alert } from '@/components/ui/Alert'
 import { LogoutIcon } from '@/components/ui/icons'
 import { HealthSyncCard } from '@/components/health/HealthSyncCard'
 import { NotificationPreferences } from '@/components/settings/NotificationPreferences'
+import { ThemePicker } from '@/components/settings/ThemePicker'
 
 /**
  * Profile, body stats and macro targets.
@@ -244,6 +245,18 @@ export function Settings() {
               You are a moderator — you can remove any community post or comment.
             </p>
           ) : null}
+        </div>
+      </section>
+
+      {/* Appearance. Applies on click and saves itself, so it sits above the
+          form rather than inside it — it isn't waiting on "Save changes". */}
+      <section className="card p-5">
+        <h2 className="font-semibold text-slate-900">Appearance</h2>
+        <p className="mt-1 text-sm text-slate-500">
+          Applies straight away and follows your account to any device you sign in on.
+        </p>
+        <div className="mt-4">
+          <ThemePicker />
         </div>
       </section>
 

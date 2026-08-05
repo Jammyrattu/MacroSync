@@ -7,6 +7,35 @@
     <meta name="theme-color" content="#10b981" />
     <meta name="description" content="MacroSync — track your calories, macros and workouts in one place." />
     <title>MacroSync</title>
+    <!--
+      Theme, before anything renders. This has to be inline and synchronous:
+      by the time the bundle has parsed — never mind the profile row arriving —
+      a dark-theme user would already have been shown a white page.
+
+      Kept in step with src/lib/theme.ts, which owns this logic everywhere else.
+    -->
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem('macrosync-theme')
+          var theme = stored === 'dark' || stored === 'light' || stored === 'system' ? stored : 'light'
+          var resolved =
+            theme === 'system'
+              ? window.matchMedia('(prefers-color-scheme: dark)').matches
+                ? 'dark'
+                : 'light'
+              : theme
+          document.documentElement.dataset.theme = resolved
+          if (resolved === 'dark') {
+            document
+              .querySelector('meta[name="theme-color"]')
+              .setAttribute('content', '#0b1220')
+          }
+        } catch (e) {
+          document.documentElement.dataset.theme = 'light'
+        }
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>

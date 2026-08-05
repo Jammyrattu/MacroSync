@@ -41,14 +41,14 @@ export function Modal({
         type="button"
         aria-label="Close"
         onClick={onClose}
-        className="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px]"
+        className="absolute inset-0 bg-scrim/40 backdrop-blur-[2px]"
       />
 
       <div
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="relative flex max-h-[90vh] w-full max-w-md flex-col rounded-t-3xl bg-white shadow-xl sm:rounded-3xl"
+        className="relative flex max-h-[90vh] w-full max-w-md flex-col rounded-t-3xl bg-surface shadow-xl sm:rounded-3xl"
       >
         <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
           <h2 className="font-bold text-slate-900">{title}</h2>

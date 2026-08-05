@@ -61,7 +61,7 @@ export function StatTile({
       className={`relative flex h-full flex-col rounded-2xl border p-4 text-left transition-colors ${
         selected
           ? 'border-brand-400 bg-brand-50/60 ring-1 ring-brand-400'
-          : 'border-slate-200 bg-white hover:border-slate-300'
+          : 'border-slate-200 bg-surface hover:border-slate-300'
       }`}
     >
       <div className="flex items-start gap-2">

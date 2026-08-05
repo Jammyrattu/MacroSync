@@ -5,39 +5,33 @@
  * tripping fast-refresh (a module exporting both a component and a value can't
  * be hot-swapped).
  *
- * Both palettes were run through the data-viz validator against the white card
- * surface on the all-pairs list — donut slices get compared to each other, not
- * just to their neighbours.
+ * Both palettes were run through the data-viz validator on the all-pairs list —
+ * donut slices get compared to each other, not just to their neighbours — once
+ * against the light card surface and again against the dark one, because the
+ * two modes have different lightness bands and needed different steps.
+ *
+ * These are var() references rather than hexes so the values live in exactly
+ * one place (index.css), where the theme can restep them. Both consumers pass
+ * them straight to an SVG `fill` or a `backgroundColor`, which resolve a
+ * custom property the same as any other colour.
  */
 
 /** How far back the Progress page looks. Matches the health sync window. */
 export const HISTORY_DAYS = 30
 
-/**
- * Sleep stages. Blues deepen with sleep depth, so the ordering survives where
- * hue doesn't; awake breaks the family on purpose, because it isn't sleep.
- *
- * Validated: worst-pair CVD ΔE 16.5, normal-vision ΔE 18.4 (floors 8 / 15).
- */
+/** Sleep stages. See --color-sleep-* in index.css for the palette rationale. */
 export const SLEEP_COLORS = {
-  deep: '#1d4ed8',
-  light: '#60a5fa',
-  rem: '#0d9488',
-  awake: '#f59e0b',
+  deep: 'var(--color-sleep-deep)',
+  light: 'var(--color-sleep-light)',
+  rem: 'var(--color-sleep-rem)',
+  awake: 'var(--color-sleep-awake)',
 } as const
 
-/**
- * Macros. Protein and carbs are the app's original values; fat moved from
- * #a855f7 to #db2777 after measuring ΔE 0.9 against protein under deuteranopia
- * — the same colour to the most common form of colour blindness.
- *
- * Validated: worst-pair CVD ΔE 21.4, normal-vision ΔE 28.4. Kept in step with
- * --color-macro-* in index.css so the donut and the dashboard bars agree.
- */
+/** Macros. See --color-macro-* in index.css for the palette rationale. */
 export const MACRO_COLORS = {
-  protein: '#3b82f6',
-  carbs: '#f59e0b',
-  fat: '#db2777',
+  protein: 'var(--color-macro-protein)',
+  carbs: 'var(--color-macro-carbs)',
+  fat: 'var(--color-macro-fat)',
 } as const
 
 /** Energy per gram — what turns grams into a comparable share of calories. */

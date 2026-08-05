@@ -90,7 +90,7 @@ export function ReactionBar({
             className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-sm transition-colors ${
               isMine
                 ? 'border-brand-400 bg-brand-50'
-                : 'border-slate-200 bg-white hover:border-slate-300'
+                : 'border-slate-200 bg-surface hover:border-slate-300'
             }`}
           >
             <span aria-hidden="true">{emoji}</span>
@@ -109,7 +109,7 @@ export function ReactionBar({
         aria-expanded={pickerOpen}
         aria-haspopup="true"
         aria-label={mine ? 'Change your reaction' : 'Add a reaction'}
-        className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-sm transition-colors hover:border-slate-300"
+        className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-surface px-2.5 py-1 text-sm transition-colors hover:border-slate-300"
       >
         <span aria-hidden="true">{mine ?? REACTION_EMOJIS[0]}</span>
         <span className="text-xs font-semibold text-slate-400">{mine ? '▾' : '+'}</span>
@@ -118,7 +118,7 @@ export function ReactionBar({
       {pickerOpen ? (
         <div
           role="menu"
-          className="absolute bottom-full left-0 z-20 mb-2 flex gap-1 rounded-full border border-slate-200 bg-white p-1.5 shadow-lg"
+          className="absolute bottom-full left-0 z-20 mb-2 flex gap-1 rounded-full border border-slate-200 bg-surface-raised p-1.5 shadow-lg"
         >
           {REACTION_EMOJIS.map((emoji) => (
             <button

@@ -4,7 +4,7 @@ import { NAV_ITEMS } from './navItems'
 /** Mobile tab bar. Hidden at md and up, where TopNav takes over. */
 export function BottomNav() {
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 backdrop-blur md:hidden">
+    <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-surface/95 backdrop-blur md:hidden">
       {/* pb keeps the tabs clear of the iOS home indicator.
 
           Column count is derived, not written down: a hard-coded grid-cols-6

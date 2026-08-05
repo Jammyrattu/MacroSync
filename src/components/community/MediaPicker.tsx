@@ -56,7 +56,7 @@ export function MediaPicker({
               aria-selected={tab === id}
               onClick={() => setTab(id)}
               className={`flex-1 rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors ${
-                tab === id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600'
+                tab === id ? 'bg-surface-raised text-slate-900 shadow-sm' : 'text-slate-600'
               }`}
             >
               {id === 'emoji' ? 'Emoji' : 'GIF'}
@@ -238,7 +238,7 @@ function GroupChip({
       onClick={onClick}
       aria-pressed={active}
       className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold whitespace-nowrap transition-colors ${
-        active ? 'bg-brand-600 text-white' : 'border border-slate-200 bg-white text-slate-600'
+        active ? 'bg-brand-600 text-white' : 'border border-slate-200 bg-surface text-slate-600'
       }`}
     >
       {children}

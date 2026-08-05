@@ -182,7 +182,7 @@ export function CheckinFeedCard({
                   <button
                     type="button"
                     onClick={() => setGif(null)}
-                    className="absolute top-1 right-1 rounded-full bg-slate-900/70 p-1 text-white"
+                    className="absolute top-1 right-1 rounded-full bg-scrim/70 p-1 text-white"
                     aria-label="Remove GIF"
                   >
                     <XIcon className="size-3.5" />

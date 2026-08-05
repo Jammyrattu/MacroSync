@@ -9,7 +9,7 @@ export function TopNav() {
   const { profile, user } = useAuth()
 
   return (
-    <header className="sticky top-0 z-30 hidden border-b border-slate-200 bg-white/90 backdrop-blur md:block">
+    <header className="sticky top-0 z-30 hidden border-b border-slate-200 bg-surface/90 backdrop-blur md:block">
       <div className="mx-auto flex h-16 max-w-6xl items-center gap-6 px-6">
         {/* Logo and avatar each take an equal share of the leftover width, so
             the nav sits in the true centre of the header. Putting flex-1 on the

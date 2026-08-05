@@ -111,7 +111,7 @@ export function BarcodeScanner({ onDetected }: { onDetected: (barcode: string) =
 
   return (
     <div className="space-y-3">
-      <div className="relative overflow-hidden rounded-2xl bg-slate-900 aspect-[4/3]">
+      <div className="relative overflow-hidden rounded-2xl bg-scrim aspect-[4/3]">
         <video
           ref={videoRef}
           playsInline

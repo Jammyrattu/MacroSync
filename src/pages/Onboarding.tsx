@@ -12,6 +12,7 @@ import type { ActivityLevel, Goal, Sex } from '@/types/db'
 import { Logo } from '@/components/ui/Logo'
 import { Alert } from '@/components/ui/Alert'
 import { HealthSyncCard } from '@/components/health/HealthSyncCard'
+import { ThemePicker } from '@/components/settings/ThemePicker'
 
 /**
  * Calorie-target wizard. Collects the six inputs the calculation needs, previews
@@ -24,6 +25,7 @@ import { HealthSyncCard } from '@/components/health/HealthSyncCard'
  */
 
 const STEPS = [
+  'Appearance',
   'About you',
   'Measurements',
   'Activity',
@@ -73,6 +75,7 @@ export function Onboarding() {
 
   // Each step's own validity — drives the Continue button.
   const stepValid = [
+    true, // appearance — there is no wrong answer, and one is already applied
     Boolean(age && Number(age) >= 13 && Number(age) <= 120 && sex),
     Boolean(heightCm && Number(heightCm) > 0 && weightKg && Number(weightKg) > 0),
     Boolean(activity),
@@ -163,6 +166,16 @@ export function Onboarding() {
           {step === 0 && (
             <div className="space-y-5">
               <Header
+                title="Pick your look"
+                detail="Choose now and the rest of the setup is already in it. You can change it any time in Settings."
+              />
+              <ThemePicker />
+            </div>
+          )}
+
+          {step === 1 && (
+            <div className="space-y-5">
+              <Header
                 title="Tell us about you"
                 detail="We use this to estimate how much energy your body burns at rest."
               />
@@ -203,7 +216,7 @@ export function Onboarding() {
             </div>
           )}
 
-          {step === 1 && (
+          {step === 2 && (
             <div className="space-y-5">
               <Header title="Your measurements" detail="Height and current weight, in metric." />
               <div>
@@ -238,7 +251,7 @@ export function Onboarding() {
             </div>
           )}
 
-          {step === 2 && (
+          {step === 3 && (
             <div className="space-y-3">
               <Header title="How active are you?" detail="Counting everything, not just training." />
               {(Object.keys(ACTIVITY_MULTIPLIERS) as ActivityLevel[]).map((level) => (
@@ -257,7 +270,7 @@ export function Onboarding() {
             </div>
           )}
 
-          {step === 3 && (
+          {step === 4 && (
             <div className="space-y-3">
               <Header title="What's your goal?" detail="This shifts your daily calorie target." />
               {(['lose', 'maintain', 'gain'] as Goal[]).map((option) => (
@@ -274,7 +287,7 @@ export function Onboarding() {
             </div>
           )}
 
-          {step === 4 && targets && (
+          {step === 5 && targets && (
             <div className="space-y-5">
               <Header
                 title="Here are your targets"
@@ -398,7 +411,7 @@ function ChoiceButton({
       } ${
         selected
           ? 'border-brand-500 bg-brand-50 text-brand-900'
-          : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
+          : 'border-slate-200 bg-surface text-slate-700 hover:border-slate-300'
       }`}
     >
       {children}

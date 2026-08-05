@@ -6,7 +6,7 @@ import type { ReactNode } from 'react'
  */
 export function ChartTooltip({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-lg">
+    <div className="rounded-xl border border-slate-200 bg-surface-raised px-3 py-2 shadow-lg">
       <p className="text-xs font-medium text-slate-500">{label}</p>
       <div className="mt-0.5 text-sm text-slate-900">{children}</div>
     </div>

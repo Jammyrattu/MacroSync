@@ -258,7 +258,7 @@ export function WorkoutSession() {
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Sticky session header with the live timer. */}
-      <header className="sticky top-0 z-20 border-b border-slate-200 bg-white">
+      <header className="sticky top-0 z-20 border-b border-slate-200 bg-surface">
         <div className="mx-auto flex max-w-2xl items-center gap-3 px-4 py-3">
           <button
             type="button"
@@ -389,7 +389,7 @@ export function WorkoutSession() {
       </main>
 
       {/* Fixed finish bar */}
-      <div className="fixed inset-x-0 bottom-0 border-t border-slate-200 bg-white p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+      <div className="fixed inset-x-0 bottom-0 border-t border-slate-200 bg-surface p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
         <div className="mx-auto max-w-2xl">
           <button
             type="button"

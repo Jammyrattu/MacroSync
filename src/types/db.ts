@@ -6,6 +6,9 @@
  * regenerates this automatically.
  */
 
+export type { Theme } from '@/lib/theme'
+import type { Theme } from '@/lib/theme'
+
 export type Sex = 'male' | 'female'
 export type ActivityLevel = 'sedentary' | 'light' | 'moderate' | 'very' | 'extra'
 export type Goal = 'lose' | 'maintain' | 'gain'
@@ -24,6 +27,11 @@ export interface Profile {
   display_name: string | null
   bio: string | null
   avatar_url: string | null
+  /**
+   * UI theme. Stored per account so it follows the user between devices;
+   * localStorage caches it so it can be applied before this row has loaded.
+   */
+  theme: Theme
   created_at: string
 }
 

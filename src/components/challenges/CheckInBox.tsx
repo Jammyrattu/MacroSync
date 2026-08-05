@@ -130,7 +130,7 @@ export function CheckInBox({
             <button
               type="button"
               onClick={clearPhoto}
-              className="absolute top-2 right-2 rounded-full bg-slate-900/70 p-1.5 text-white"
+              className="absolute top-2 right-2 rounded-full bg-scrim/70 p-1.5 text-white"
               aria-label="Remove photo"
             >
               <XIcon className="size-4" />

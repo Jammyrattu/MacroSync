@@ -32,12 +32,137 @@
   /* Fat was #a855f7 until it was measured against protein: ΔE 0.9 under
      deuteranopia, i.e. the same colour to the most common form of colour
      blindness. This trio scores worst-pair CVD ΔE 21.4 / normal-vision 28.4.
-     Mirrored by MACRO_COLORS in MacroBreakdown.tsx. */
+     progressViz.ts reads these through var(), so there is one source. */
   --color-macro-protein: #3b82f6;
   --color-macro-carbs: #f59e0b;
   --color-macro-fat: #db2777;
 
+  /* Sleep stages. Blues deepen with sleep depth so the ordering survives where
+     hue doesn't; awake breaks the family on purpose, because it isn't sleep.
+     Validated: worst-pair CVD ΔE 16.5, normal-vision ΔE 18.4. */
+  --color-sleep-deep: #1d4ed8;
+  --color-sleep-light: #60a5fa;
+  --color-sleep-rem: #0d9488;
+  --color-sleep-awake: #f59e0b;
+
+  /* The raised surface — cards, modals, inputs, the nav bars. Separate from
+     --color-white on purpose: `bg-surface` has to flip with the theme, while
+     `text-white` (which sits on brand green and on the scrim) must not. */
+  --color-surface: #ffffff;
+
+  /* One step above the surface: the selected pill in a segmented control, and
+     anything floating over a card (tooltips, the reaction popover). In light
+     these are white like everything else — a shadow is enough. Dark UIs read
+     elevation as lightness, so there it has to be a genuinely lighter fill or
+     a pill on a slate-100 track ends up looking pressed in rather than out. */
+  --color-surface-raised: #ffffff;
+
+  /* Scrim: the wash behind a modal and behind the small controls that sit on
+     top of a user's photo. Dark in BOTH themes — a photo is a photo, and the
+     white glyph on it has to stay legible either way. */
+  --color-scrim: #0f172a;
+
+  /* The destructive button's fill. Fixed in both themes for the same reason
+     brand-600 is: it carries white text, so it can't ride the red ramp, which
+     inverts to a light red for `text-red-600`. */
+  --color-danger: #dc2626;
+  --color-danger-hover: #b91c1c;
+
   --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+/*
+ * Dark theme.
+ *
+ * Every colour utility Tailwind v4 emits is a var() reference
+ * (`.text-slate-900 { color: var(--color-slate-900) }`), so redefining the
+ * tokens here re-themes all ~350 neutral utilities in the app without touching
+ * a single component. The slate ramp inverts — 50 is the page, 900 is the
+ * brightest ink — which works because the app uses the scale consistently:
+ * low numbers are always surfaces, high numbers are always ink.
+ *
+ * The tinted-chip pairs (bg-brand-50 + text-brand-700 and friends) invert the
+ * same way: the 50/100/200 end becomes a deep tint, the 700+ end becomes the
+ * legible accent on top of it.
+ *
+ * `:root[data-theme='dark']` rather than a bare attribute selector so it
+ * outranks the `:root` block Tailwind generates from @theme regardless of
+ * source order.
+ *
+ * Every pair below was measured, not eyeballed — see the contrast table in the
+ * commit. The dark theme meets or beats the light theme on all of them.
+ */
+:root[data-theme='dark'] {
+  /* Native widgets: selects, scrollbars, the date picker, form autofill. */
+  color-scheme: dark;
+
+  --color-slate-50: #0b1220;
+  --color-slate-100: #1c2637;
+  --color-slate-200: #273347;
+  --color-slate-300: #37455c;
+  --color-slate-400: #7c8ba3;
+  --color-slate-500: #9aa8bd;
+  --color-slate-600: #b6c2d4;
+  --color-slate-700: #cdd7e5;
+  --color-slate-800: #e2e9f2;
+  --color-slate-900: #f2f6fb;
+
+  --color-surface: #151d2c;
+  --color-surface-raised: #2a3752;
+
+  /* Black rather than slate here. The modal backdrop is a 40% wash over the
+     page, and slate-on-near-black barely dims anything — the sheet needs the
+     page to visibly recede behind it. The photo overlays it also feeds are, if
+     anything, better on black. */
+  --color-scrim: #000000;
+
+  /* brand-500/600 are deliberately unchanged: a primary button is the same
+     green in both themes, and so is the white on it. */
+  --color-brand-50: #0d2f22;
+  --color-brand-100: #14402e;
+  --color-brand-200: #1a5a41;
+  --color-brand-700: #6ee7b7;
+  --color-brand-800: #a7f3d0;
+  --color-brand-900: #d1fae5;
+
+  --color-ocean-50: #10243f;
+  --color-ocean-100: #16345a;
+  --color-ocean-200: #1e4a7a;
+  --color-ocean-700: #93c5fd;
+  --color-ocean-800: #bfdbfe;
+
+  --color-red-50: #3a1116;
+  --color-red-200: #6b1f26;
+  --color-red-500: #f87171;
+  --color-red-600: #f87171;
+  --color-red-800: #fecaca;
+
+  --color-amber-50: #3a2a08;
+  --color-amber-200: #5f4712;
+  --color-amber-700: #fcd34d;
+  --color-amber-800: #fde68a;
+  --color-amber-900: #fef3c7;
+  --color-amber-950: #fffbeb;
+
+  /* Re-stepped for the dark surface, not tinted by hand: the light values sit
+     outside the dark lightness band (a yellow at L 0.77 glares), so the trio
+     was re-run through the data-viz validator against #151d2c on the all-pairs
+     list. Worst-pair CVD ΔE 13.5, normal-vision ΔE 19.0. */
+  --color-macro-protein: #4d8ef8;
+  --color-macro-carbs: #d97706;
+  --color-macro-fat: #e8478f;
+
+  /* Sleep, likewise re-stepped. The light theme separates deep from light
+     sleep by lightness alone; the dark band is far too narrow for two blues to
+     clear the normal-vision floor that way, so light sleep moves to violet and
+     identity rests on hue instead. Worst-pair CVD ΔE 8.6, normal-vision 17.0.
+     Deep sits at 2.52:1 on the surface — under the 3:1 relief rule, which the
+     donut satisfies by naming and valuing every slice in the legend beside it,
+     exactly as the light palette already does. */
+  --color-sleep-deep: #1d4ed8;
+  --color-sleep-light: #9061f9;
+  --color-sleep-rem: #0d9488;
+  --color-sleep-awake: #d97706;
 }
 
 @layer base {
@@ -77,24 +202,24 @@
 
 @layer components {
   .card {
-    @apply rounded-2xl border border-slate-200 bg-white shadow-sm;
+    @apply rounded-2xl border border-slate-200 bg-surface shadow-sm;
   }
 
   .btn-primary {
     @apply btn bg-brand-600 text-white hover:bg-brand-700;
   }
   .btn-secondary {
-    @apply btn border border-slate-300 bg-white text-slate-700 hover:bg-slate-50;
+    @apply btn border border-slate-300 bg-surface text-slate-700 hover:bg-slate-50;
   }
   .btn-danger {
-    @apply btn bg-red-600 text-white hover:bg-red-700;
+    @apply btn bg-danger text-white hover:bg-danger-hover;
   }
   .btn-ghost {
     @apply btn text-slate-600 hover:bg-slate-100;
   }
 
   .input {
-    @apply w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900
+    @apply w-full rounded-xl border border-slate-300 bg-surface px-3.5 py-2.5 text-sm text-slate-900
            placeholder:text-slate-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20
            focus:outline-none;
   }

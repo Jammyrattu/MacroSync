@@ -102,7 +102,7 @@ export function CameraCapture({
   return (
     <Modal open={open} onClose={onClose} title="Take a photo">
       <div className="space-y-3">
-        <div className="relative aspect-4/3 overflow-hidden rounded-2xl bg-slate-900">
+        <div className="relative aspect-4/3 overflow-hidden rounded-2xl bg-scrim">
           <video
             ref={videoRef}
             playsInline
