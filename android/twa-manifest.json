@@ -1,0 +1,53 @@
+{
+  "packageId": "uk.co.macrosync.app",
+  "host": "www.macrosync.co.uk",
+  "name": "MacroSync",
+  "launcherName": "MacroSync",
+  "display": "standalone",
+  "themeColor": "#10b981",
+  "themeColorDark": "#0b1220",
+  "navigationColor": "#0b1220",
+  "navigationColorDark": "#0b1220",
+  "navigationDividerColor": "#0b1220",
+  "navigationDividerColorDark": "#0b1220",
+  "backgroundColor": "#f8fafc",
+  "enableNotifications": true,
+  "startUrl": "/",
+  "iconUrl": "https://www.macrosync.co.uk/icons/icon-512.png",
+  "maskableIconUrl": "https://www.macrosync.co.uk/icons/icon-maskable-512.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "C:\\Users\\jammy\\macrosync-signing\\macrosync-upload.keystore",
+    "alias": "macrosync"
+  },
+  "appVersionCode": 1,
+  "appVersion": "1.0.0",
+  "shortcuts": [
+    {
+      "name": "Log food",
+      "shortName": "Food",
+      "url": "/add-food",
+      "chosenIconUrl": "https://www.macrosync.co.uk/icons/icon-192.png"
+    },
+    {
+      "name": "Start a workout",
+      "shortName": "Workouts",
+      "url": "/workouts",
+      "chosenIconUrl": "https://www.macrosync.co.uk/icons/icon-192.png"
+    }
+  ],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://www.macrosync.co.uk/manifest.webmanifest",
+  "fallbackType": "customtabs",
+  "features": {},
+  "alphaDependencies": {
+    "enabled": false
+  },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://www.macrosync.co.uk/",
+  "minSdkVersion": 23,
+  "orientation": "default",
+  "fingerprints": []
+}

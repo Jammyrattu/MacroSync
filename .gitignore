@@ -43,3 +43,9 @@ android/app/build/
 android/.gradle/
 *.keystore
 *.jks
+
+# Bubblewrap generates the whole Android project from twa-manifest.json, so the
+# manifest is the source and everything else is output. Keeping the generated
+# Gradle project out avoids a large diff on every rebuild.
+android/*
+!android/twa-manifest.json
