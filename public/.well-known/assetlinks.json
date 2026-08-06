@@ -1,0 +1,14 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "uk.co.macrosync.app",
+      "sha256_cert_fingerprints": [
+        "38:BA:58:A1:EF:D2:81:44:EA:46:A3:25:4A:F8:DC:BF:FE:38:C1:45:61:E5:CA:B1:D7:72:B4:F4:1A:ED:FB:5C",
+        "E0:FA:3F:8F:C6:1F:81:B6:35:AA:84:D7:D3:71:AE:22:D6:AE:B4:83:0C:1F:BD:6C:44:4A:D4:19:46:8C:03:87",
+        "FE:1C:67:0D:A6:90:D6:90:A5:7F:8E:1B:D5:D3:4A:AB:48:83:80:76:0A:92:06:29:60:94:14:71:4C:40:5C:BE"
+      ]
+    }
+  }
+]
