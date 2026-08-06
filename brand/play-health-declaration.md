@@ -71,12 +71,18 @@ part specifically:
 
 | Data type | Collected | Shared | Required | Purpose |
 |---|---|---|---|---|
-| Health info *(steps, distance, active calories, exercise minutes, sleep and its stages, weight, height, age, sex)* | Yes | No | **Optional** | App functionality |
-| Fitness info *(workouts, sets, reps, weights)* | Yes | No | Yes | App functionality |
+| Health info *(age, sex, height, weight, sleep and its stages)* | Yes | No | **Required** | App functionality |
+| Fitness info *(steps, distance, active calories, exercise minutes, workouts, sets, reps)* | Yes | No | **Optional** | App functionality |
 
-**Optional, not required, for health info** — connecting Google Health is skippable
-at signup and can be undone later, and the app works without it. That's a real
-difference and Play checks it against the app's behaviour.
+**Health info is Required.** Age, sex, height and weight are collected during
+onboarding and `OnboardedGate` will not let anyone into the app until that is
+finished — there is no skip. The Google Health half genuinely is optional, but a data
+type counts as Required if any part of it is.
+
+Fitness info is optional: the app works as a food diary alone, and connecting Google
+Health can be skipped at signup and undone later.
+
+See `play-data-safety.md` for the full form.
 
 Also tick, for both rows:
 
