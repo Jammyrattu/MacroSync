@@ -8,7 +8,8 @@ export function SetupNotice() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
       <div className="card w-full max-w-lg p-6">
-        <Logo />
+        {/* Renders before the providers exist, so the tone can't come from the theme. */}
+        <Logo tone="solid" />
         <h1 className="mt-4 text-lg font-bold text-slate-900">Almost there — add your keys</h1>
         <p className="mt-2 text-sm text-slate-600">
           MacroSync needs your Supabase project credentials before it can start.
