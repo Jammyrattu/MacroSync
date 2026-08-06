@@ -16,6 +16,7 @@ import { LogoutIcon } from '@/components/ui/icons'
 import { HealthSyncCard } from '@/components/health/HealthSyncCard'
 import { NotificationPreferences } from '@/components/settings/NotificationPreferences'
 import { ThemePicker } from '@/components/settings/ThemePicker'
+import { DeleteAccount } from '@/components/settings/DeleteAccount'
 
 /**
  * Profile, body stats and macro targets.
@@ -505,6 +506,8 @@ export function Settings() {
         <LogoutIcon className="size-4" />
         Log out
       </button>
+
+      <DeleteAccount />
 
       <p className="pb-2 text-center text-xs text-slate-400">
         <a href="/privacy" className="hover:text-slate-600 hover:underline">
