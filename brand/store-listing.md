@@ -107,9 +107,13 @@ MacroSync is free.
 
 | Field | Value |
 |---|---|
-| Email | *(your support address — see the outstanding list)* |
+| Email | `support@macrosync.co.uk` |
 | Website | `https://www.macrosync.co.uk` |
 | Privacy policy | `https://www.macrosync.co.uk/privacy` |
+
+> Play publishes that address on your listing, so it will receive real mail from
+> strangers. Send a test message to it before you submit — the domain sends through
+> Resend, which does not by itself mean anything is set up to RECEIVE.
 
 ---
 
@@ -123,6 +127,25 @@ MacroSync is free.
 
 ---
 
+## App access — credentials for the reviewer
+
+Play Console → App content → **App access** → "All or some functionality is restricted".
+
+| Field | Value |
+|---|---|
+| Username | `review@macrosync.co.uk` |
+| Password | *type it straight into Play Console — deliberately not written down here* |
+
+Verified working: signs in, email confirmed, onboarding complete, 1591 kcal target,
+6 food logs and a routine to look at. An account that lands on the setup wizard, or
+that is empty, is the most common reason a reviewer rejects an app they cannot get
+into.
+
+**The password is not in this file because this repository is public.** Anything
+committed here is world-readable and stays in the git history afterwards.
+
+---
+
 ## Screenshots — the order to upload them
 
 Play shows these left to right and most people only see the first two, so the
@@ -130,17 +153,22 @@ strongest go first.
 
 | # | File | Shows |
 |---|---|---|
-| 1 | `screenshot5.jpg` | Food diary — calorie ring, macro bars, search and scan |
-| 2 | `screenshot1.jpg` | Live workout — active set, rest timer, calories (dark) |
-| 3 | `screenshot6.jpg` | Dashboard — Google Health steps, calories, distance, sleep |
-| 4 | `screenshot3.jpg` | Challenges — leaderboard and weekly check-in target |
-| 5 | `screenshot7.jpg` | Routines with supersets (dark) |
-| 6 | `screenshot4.jpg` | Routines imported from a CSV |
-| 7 | `screenshot2.jpg` | Community feed |
+| 1 | `newscreenshot4.jpg` | Food diary — calorie ring and macro bars |
+| 2 | `newscreenshot.jpg` | Live workout — superset, active set, rest timer |
+| 3 | `newscreenshot5.jpg` | A day's meals, logged |
+| 4 | `newscreenshot2.jpg` | Building a routine, grouping a superset |
+| 5 | *(to take)* | Dashboard — Google Health steps, calories, sleep |
+| 6 | *(to take)* | Challenges — leaderboard and weekly target |
+| 7 | `newscreenshot3.jpg` | Routines list |
 
-Two things to fix before uploading — see the outstanding list for why:
+Two still to take, both on the **review@** account so no real person appears:
 
-- **`screenshot3.jpg` shows other people's names and profile photos.** A store
-  listing is public worldwide and permanent.
-- **`screenshot4.jpg` and `screenshot7.jpg` show routines called "Test" and
-  "superset test", and "Imported from workout_data.csv".** It reads as unfinished.
+- **Dashboard with Google Health connected.** The old `screenshot6.jpg` shows this
+  well but it is your own step count and sleep, on a listing that is public
+  worldwide and permanent.
+- **A challenge with a leaderboard.** The old `screenshot3.jpg` shows this well but
+  it names two other people and shows their profile photos.
+
+`newscreenshot3.jpg` is honest but mostly empty space — one routine on a tall
+screen. Add two or three more routines to the review account before taking it, or
+drop it and ship six.
